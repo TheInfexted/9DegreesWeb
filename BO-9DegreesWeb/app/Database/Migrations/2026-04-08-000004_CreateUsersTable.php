@@ -21,7 +21,7 @@ class CreateUsersTable extends Migration
         $this->forge->addUniqueKey('username');
         $this->forge->addUniqueKey('email');
         $this->forge->addUniqueKey('ambassador_id');
-        $this->forge->addForeignKey('ambassador_id', 'ambassadors', 'id');
+        $this->forge->addForeignKey('ambassador_id', 'ambassadors', 'id', '', 'SET NULL');
         $this->forge->createTable('users');
     }
 

@@ -26,7 +26,7 @@ class CreateAmbassadorsTable extends Migration
         ]);
         $this->forge->addPrimaryKey('id');
         $this->forge->addForeignKey('role_id', 'roles', 'id');
-        $this->forge->addForeignKey('team_id', 'teams', 'id');
+        $this->forge->addForeignKey('team_id', 'teams', 'id', '', 'SET NULL');
         $this->forge->addKey('team_id');
         $this->forge->addKey('role_id');
         $this->forge->addKey('status');

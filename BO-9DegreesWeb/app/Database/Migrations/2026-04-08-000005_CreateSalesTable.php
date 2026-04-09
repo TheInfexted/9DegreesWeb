@@ -24,8 +24,8 @@ class CreateSalesTable extends Migration
         ]);
         $this->forge->addPrimaryKey('id');
         $this->forge->addForeignKey('ambassador_id', 'ambassadors', 'id');
-        $this->forge->addForeignKey('team_id', 'teams', 'id');
-        $this->forge->addForeignKey('created_by', 'ambassadors', 'id');
+        $this->forge->addForeignKey('team_id', 'teams', 'id', '', 'SET NULL');
+        $this->forge->addForeignKey('created_by', 'ambassadors', 'id', '', 'SET NULL');
         $this->forge->addKey('date');
         $this->forge->addKey('ambassador_id');
         $this->forge->addKey('team_id');

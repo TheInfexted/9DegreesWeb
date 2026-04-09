@@ -12,7 +12,7 @@ class CreatePayoutsTable extends Migration
             'month'            => ['type' => 'DATE', 'null' => false],
             'total_commission' => ['type' => 'DECIMAL', 'constraint' => '12,2', 'null' => false],
             'paid_at'          => ['type' => 'TIMESTAMP', 'null' => true, 'default' => null],
-            'receipt_paths'    => ['type' => 'TEXT', 'null' => true, 'default' => null],
+            'receipt_paths'    => ['type' => 'JSON', 'null' => true, 'default' => null],
             'payslip_path'     => ['type' => 'VARCHAR', 'constraint' => 500, 'null' => true, 'default' => null],
             'created_at'       => ['type' => 'TIMESTAMP', 'null' => true, 'default' => null],
             'updated_at'       => ['type' => 'TIMESTAMP', 'null' => true, 'default' => null],
