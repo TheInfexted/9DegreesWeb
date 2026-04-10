@@ -7,6 +7,12 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
+$routes->set404Override(function () {
+    return service('response')
+        ->setStatusCode(404)
+        ->setJSON(['message' => 'Route not found.']);
+});
+
 $routes->group('api/v1', function ($routes) {
     // Public
     $routes->post('auth/login',  'Api\AuthController::login');

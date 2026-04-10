@@ -34,7 +34,11 @@ class Cors extends BaseConfig
          *   - ['http://localhost:8080']
          *   - ['https://www.example.com']
          */
-        'allowedOrigins' => ['http://localhost:3000'],
+        'allowedOrigins' => [
+            'http://localhost:3000',
+            // Add production frontend origin here before deploying:
+            // 'https://app.9degrees.com',
+        ],
 
         /**
          * Origin regex patterns for the `Access-Control-Allow-Origin` header.
