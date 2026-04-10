@@ -9,6 +9,7 @@ class PayoutService
     private const MAX_RECEIPT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
     private const MAX_RECEIPT_FILES      = 10;
     private const RECEIPT_UPLOAD_PATH    = WRITEPATH . 'uploads/receipts/';
+    private const PAYSLIP_UPLOAD_PATH    = WRITEPATH . 'uploads/payslips/';
 
     public function __construct(
         private PayoutRepository $repo = new PayoutRepository(),
@@ -128,5 +129,87 @@ class PayoutService
     public function getAvailableMonths(): array
     {
         return $this->repo->getAvailableMonths();
+    }
+
+    public function generateSummaryPdf(int $id): string
+    {
+        $data    = $this->buildPdfData($id);
+        $html    = view('pdf/payout_summary', $data);
+        $service = new PdfService();
+        return $service->generate($html, $data['payout']['reference'] . '.pdf');
+    }
+
+    public function generatePayslipPdf(int $id): array
+    {
+        $data    = $this->buildPdfData($id);
+        $html    = view('pdf/payslip', $data);
+        $service = new PdfService();
+        $pdf     = $service->generate($html, $data['payout']['payslip_reference'] . '.pdf');
+
+        $dir = self::PAYSLIP_UPLOAD_PATH . $id . '/';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+
+        $filename = $data['payout']['payslip_reference'] . '.pdf';
+        file_put_contents($dir . $filename, $pdf);
+
+        $relativePath = 'payslips/' . $id . '/' . $filename;
+        $this->repo->update($id, ['payslip_path' => $relativePath]);
+
+        return $this->repo->findById($id);
+    }
+
+    private function buildPdfData(int $id): array
+    {
+        $payout = $this->repo->findById($id);
+        if (!$payout) throw new \RuntimeException('Payout not found.', 404);
+
+        $yearMonth = date('Y-m', strtotime($payout['month']));
+        $sales     = $this->commissionService->getReport([
+            'ambassador_id' => $payout['ambassador_id'],
+            'month'         => $yearMonth,
+        ]);
+
+        $tableSales      = array_values(array_filter($sales, fn($s) => $s['sale_type'] === 'Table'));
+        $bgoSales        = array_values(array_filter($sales, fn($s) => $s['sale_type'] === 'BGO'));
+        $tableCommission = array_sum(array_column($tableSales, 'commission_amount'));
+        $bgoCommission   = array_sum(array_column($bgoSales, 'commission_amount'));
+
+        $settings = $this->getSettings();
+
+        $periodDate  = strtotime($payout['month']);
+        $periodLabel = date('F Y', $periodDate);
+        $periodStart = date('01 M Y', $periodDate);
+        $periodEnd   = date('t M Y', $periodDate);
+
+        $ambassadorSlug = str_replace(' ', '', ucwords((string) $payout['ambassador_name']));
+        $monthCode      = strtoupper(date('MY', $periodDate));
+
+        $payout['period_label']      = $periodLabel;
+        $payout['period_full_label'] = "{$periodStart} – {$periodEnd}";
+        $payout['reference']         = "{$monthCode}_9DEG_COMM_{$ambassadorSlug}";
+        $payout['payslip_reference'] = "{$monthCode}_9DEG_PS_{$ambassadorSlug}";
+
+        return [
+            'payout'              => $payout,
+            'sales'               => $sales,
+            'summary'             => [
+                'table_sales'      => array_sum(array_column($tableSales, 'gross_amount')),
+                'bgo_sales'        => array_sum(array_column($bgoSales, 'gross_amount')),
+                'table_commission' => $tableCommission,
+                'bgo_commission'   => $bgoCommission,
+                'kpi_applied'      => false,
+            ],
+            'companyName'         => $settings['company_name']         ?? '9 Degrees',
+            'companyAddress'      => $settings['company_address']       ?? '',
+            'companyRegistration' => $settings['company_registration']  ?? '',
+            'companyPhone'        => $settings['company_phone']         ?? '',
+            'generatedDate'       => date('d-m-Y'),
+        ];
+    }
+
+    private function getSettings(): array
+    {
+        $rows = db_connect()->table('settings')->get()->getResultArray();
+        return array_combine(array_column($rows, 'key'), array_column($rows, 'value'));
     }
 }

@@ -96,19 +96,43 @@ class PayoutController extends BaseApiController
         return $this->ok($this->payoutService->getAvailableMonths());
     }
 
-    // Implemented in Task 9
     public function downloadSummary($id = null): \CodeIgniter\HTTP\ResponseInterface
     {
-        return $this->respond(['message' => 'Not yet implemented.'], 501);
+        try {
+            $pdf = $this->payoutService->generateSummaryPdf((int) $id);
+            return $this->response
+                ->setHeader('Content-Type', 'application/pdf')
+                ->setHeader('Content-Disposition', 'attachment; filename="payout-summary-' . $id . '.pdf"')
+                ->setBody($pdf);
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
+        }
     }
 
     public function generatePayslip($id = null): \CodeIgniter\HTTP\ResponseInterface
     {
-        return $this->respond(['message' => 'Not yet implemented.'], 501);
+        try {
+            return $this->ok($this->payoutService->generatePayslipPdf((int) $id));
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
+        }
     }
 
     public function downloadPayslip($id = null): \CodeIgniter\HTTP\ResponseInterface
     {
-        return $this->respond(['message' => 'Not yet implemented.'], 501);
+        try {
+            $payout = $this->payoutService->get((int) $id);
+            if (empty($payout['payslip_path'])) return $this->badRequest('Payslip not generated yet. Call POST first.');
+
+            $path = WRITEPATH . 'uploads/' . $payout['payslip_path'];
+            if (!file_exists($path)) return $this->notFound('Payslip file not found.');
+
+            return $this->response
+                ->setHeader('Content-Type', 'application/pdf')
+                ->setHeader('Content-Disposition', 'attachment; filename="payslip-' . $id . '.pdf"')
+                ->setBody(file_get_contents($path));
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
+        }
     }
 }
