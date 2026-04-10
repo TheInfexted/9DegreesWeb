@@ -24,6 +24,11 @@ class CommissionService
         return $this->repo->getReport($filters);
     }
 
+    public function calculateTotalForUser(int $ambassadorId, string $yearMonth): float
+    {
+        return $this->repo->calculateTotalCommissionForUser($ambassadorId, $yearMonth);
+    }
+
     public function getAvailableMonths(): array
     {
         return $this->repo->getAvailableMonths();

@@ -96,6 +96,22 @@ class CommissionRepository
         return $builder->findAll();
     }
 
+    /**
+     * Sum of (gross_amount * confirmed_commission_rate / 100) for all confirmed
+     * sales for a given ambassador and month.  Used to populate payout totals.
+     */
+    public function calculateTotalCommissionForUser(int $ambassadorId, string $yearMonth): float
+    {
+        $row = $this->saleModel
+            ->select('SUM(ROUND(gross_amount * confirmed_commission_rate / 100, 2)) as total', false)
+            ->where('ambassador_id', $ambassadorId)
+            ->where('status', 'confirmed')
+            ->where("SUBSTR(date, 1, 7)", $yearMonth)
+            ->first();
+
+        return (float) ($row['total'] ?? 0);
+    }
+
     public function getAvailableMonths(): array
     {
         return $this->saleModel
