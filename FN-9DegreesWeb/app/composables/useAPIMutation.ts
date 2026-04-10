@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 
 type Method = 'POST' | 'PUT' | 'DELETE' | 'PATCH'

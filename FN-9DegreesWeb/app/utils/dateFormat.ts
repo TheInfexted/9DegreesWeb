@@ -16,6 +16,6 @@ export function formatDateTime(dateStr: string): string {
 
 export function formatMonthLabel(monthStr: string): string {
   // monthStr: 'YYYY-MM' or 'YYYY-MM-DD'
-  const d = new Date(monthStr + '-01')
+  const d = new Date(monthStr.slice(0, 7) + '-01T00:00:00')
   return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: TZ }).format(d)
 }

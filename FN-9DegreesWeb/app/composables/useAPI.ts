@@ -29,11 +29,11 @@ export function useAPI<T = unknown>(
     return `${config.public.apiBase}/${endpoint}${qs ? '?' + qs : ''}`
   }
 
-  const fetch = async (): Promise<void> => {
+  const execute = async (): Promise<void> => {
     loading.value = true
     error.value   = null
     try {
-      const res = await globalThis.fetch(buildUrl(), {
+      const res = await fetch(buildUrl(), {
         headers: { Authorization: `Bearer ${auth.token}` },
       })
       if (res.status === 401) {
@@ -52,10 +52,10 @@ export function useAPI<T = unknown>(
   }
 
   if (params && 'value' in (params as object)) {
-    watch(params as Ref, fetch, { deep: true, immediate: true })
+    watch(params as Ref, execute, { deep: true, immediate: true })
   } else {
-    fetch()
+    execute()
   }
 
-  return { data, loading, error, refresh: fetch }
+  return { data, loading, error, refresh: execute }
 }
