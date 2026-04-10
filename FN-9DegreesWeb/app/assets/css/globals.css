@@ -1,0 +1,22 @@
+:root {
+  --color-cyan:       #00C4CC;
+  --color-cyan-dark:  #00A0A6;
+  --color-cyan-tint:  rgba(0, 196, 204, 0.10);
+  --color-ink:        #0A0A0A;
+  --color-surface:    #F0F2F5;
+  --color-border:     #E8E8EC;
+  --color-danger:     #EF4444;
+  --color-success:    #22C55E;
+  --color-warning:    #F59E0B;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
