@@ -5,10 +5,7 @@
         <div class="absolute inset-0 bg-black/30" @click="!persistent && $emit('update:modelValue', false)" />
         <div
           class="relative bg-white w-full sm:rounded-2xl shadow-xl overflow-hidden"
-          :class="[
-            'sm:max-w-' + (size ?? 'lg'),
-            'rounded-t-2xl sm:rounded-2xl max-h-[90vh] flex flex-col'
-          ]"
+          :class="[sizeClass, 'rounded-t-2xl sm:rounded-2xl max-h-[90vh] flex flex-col']"
         >
           <!-- Header -->
           <div v-if="title" class="flex items-center justify-between px-5 py-4 border-b border-[#F0F0F0]">
@@ -34,13 +31,21 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+const props = defineProps<{
   modelValue: boolean
   title?: string
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   persistent?: boolean
 }>()
 defineEmits<{ 'update:modelValue': [boolean] }>()
+
+const sizeMap: Record<string, string> = {
+  sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg',
+  xl: 'sm:max-w-xl', '2xl': 'sm:max-w-2xl',
+}
+const sizeClass = computed(() => sizeMap[props.size ?? 'lg'])
 </script>
 
 <style scoped>
