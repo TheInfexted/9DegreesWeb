@@ -14,7 +14,9 @@
         </div>
         <nav class="flex-1 overflow-y-auto px-2 py-3">
           <div class="space-y-0.5">
-            <SidebarItem v-for="item in allNav" :key="item.to" v-bind="item" @click="$emit('close')" />
+            <div v-for="item in allNav" :key="item.to" @click="$emit('close')">
+              <SidebarItem v-bind="item" />
+            </div>
           </div>
         </nav>
       </div>
