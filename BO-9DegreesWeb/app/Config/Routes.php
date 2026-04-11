@@ -7,10 +7,12 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
-$routes->set404Override(function () {
-    return service('response')
-        ->setStatusCode(404)
-        ->setJSON(['message' => 'Route not found.']);
+$routes->set404Override(static function (string $message = ''): void {
+    // Closure form is invoked with `echo` in CodeIgniter; returning a Response
+    // object causes "could not be converted to string" and breaks CORS preflight.
+    service('response')->setContentType('application/json');
+    $payload = $message !== '' ? $message : 'Route not found.';
+    echo json_encode(['message' => $payload], JSON_THROW_ON_ERROR);
 });
 
 $routes->group('api/v1', function ($routes) {

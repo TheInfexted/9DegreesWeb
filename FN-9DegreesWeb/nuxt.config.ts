@@ -22,4 +22,8 @@ export default defineNuxtConfig({
       apiBase: process.env.API_BASE || 'http://localhost:8080/api/v1',
     },
   },
+
+  // Subfolders (ui/, layout/) were registering as UiAppCard / LayoutAppSidebar;
+  // templates use AppCard / AppSidebar. Filename-based names fix resolution.
+  components: [{ path: '~/components', pathPrefix: false }],
 })

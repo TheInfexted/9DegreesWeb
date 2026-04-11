@@ -53,6 +53,9 @@ class Filters extends BaseFilters
     public array $required = [
         'before' => [
             'forcehttps', // Force Global Secure Requests
+            // CORS must run before routing so OPTIONS preflight is answered even when
+            // no OPTIONS route exists (browser preflight uses OPTIONS + path).
+            'cors',
             'pagecache',  // Web Page Caching
         ],
         'after' => [
@@ -73,7 +76,7 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
-            'cors',
+            // `cors` is in required `before` (before pagecache + routing).
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',

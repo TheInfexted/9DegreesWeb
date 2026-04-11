@@ -7,7 +7,13 @@
       <div class="absolute left-0 top-0 bottom-0 w-[260px] bg-white shadow-xl flex flex-col">
         <div class="flex items-center justify-between px-4 py-3 border-b border-[#F0F0F0]">
           <div class="flex items-center gap-2">
-            <img src="~/assets/img/9degree.png" alt="9 Degrees" class="w-7 h-7 object-contain" />
+            <div class="w-11 h-11 rounded-xl bg-[#0A0A0A] overflow-hidden flex items-center justify-center shrink-0">
+              <img
+                src="~/assets/img/9degree.png"
+                alt="9 Degrees"
+                class="h-full w-full object-contain origin-center scale-[2.35] select-none pointer-events-none"
+              />
+            </div>
             <span class="font-bold text-[13px] tracking-wide">9 DEGREES</span>
           </div>
           <button class="p-1 text-gray-400 hover:text-gray-600" @click="$emit('close')">✕</button>
