@@ -3,7 +3,9 @@
     <NuxtLayout name="auth">
       <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8 border border-[#E8E8EC]">
         <div class="flex flex-col items-center mb-7">
-          <img src="~/assets/img/9degree.png" alt="9 Degrees" class="w-12 h-12 object-contain mb-4" />
+          <div class="w-16 h-16 rounded-2xl bg-[#0A0A0A] flex items-center justify-center mb-4">
+            <img src="~/assets/img/9degree.png" alt="9 Degrees" class="w-10 h-10 object-contain" />
+          </div>
           <h1 class="text-[20px] font-bold text-ink">9 Degrees</h1>
           <p class="text-[13px] text-gray-400 mt-1">Sign in to your account</p>
         </div>

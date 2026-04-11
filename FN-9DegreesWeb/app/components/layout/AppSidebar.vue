@@ -2,7 +2,9 @@
   <aside class="flex flex-col w-[220px] bg-white border-r border-[#E8E8EC] h-screen sticky top-0 shrink-0">
     <!-- Logo -->
     <div class="flex items-center gap-2.5 px-4 py-4 border-b border-[#F0F0F0]">
-      <img src="~/assets/img/9degree.png" alt="9 Degrees" class="w-7 h-7 object-contain" />
+      <div class="w-7 h-7 rounded-lg bg-[#0A0A0A] flex items-center justify-center shrink-0">
+        <img src="~/assets/img/9degree.png" alt="9 Degrees" class="w-5 h-5 object-contain" />
+      </div>
       <span class="font-bold text-[13px] tracking-wide text-ink">9 DEGREES</span>
     </div>
 
