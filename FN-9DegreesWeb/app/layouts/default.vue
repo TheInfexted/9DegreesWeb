@@ -18,6 +18,15 @@
 
     <!-- Mobile Drawer -->
     <AppDrawer :open="drawerOpen" @close="drawerOpen = false" />
+
+    <!-- Confirm Dialog -->
+    <AppModal v-model="confirmState.open" :title="confirmState.title" size="sm" persistent>
+      <p class="text-[13px] text-gray-600">{{ confirmState.message }}</p>
+      <template #footer>
+        <button class="btn-secondary" @click="respond(false)">Cancel</button>
+        <button class="btn-primary" @click="respond(true)">Confirm</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -41,4 +50,5 @@ const titles: Record<string, string> = {
 }
 
 const pageTitle = computed(() => titles[route.path] ?? '9 Degrees')
+const { state: confirmState, respond } = useConfirm()
 </script>
