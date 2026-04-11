@@ -23,7 +23,7 @@ export default defineNuxtConfig({
     },
   },
 
-  // Subfolders (ui/, layout/) were registering as UiAppCard / LayoutAppSidebar;
-  // templates use AppCard / AppSidebar. Filename-based names fix resolution.
-  components: [{ path: '~/components', pathPrefix: false }],
+  // Use rootDir so this works whether Nuxt's srcDir is `.` or `app/`.
+  // Otherwise `~/components` can miss `app/components` and you get UiAppCard / LayoutAppSidebar.
+  components: [{ path: '~~/app/components', pathPrefix: false }],
 })
