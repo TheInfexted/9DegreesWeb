@@ -20,3 +20,22 @@ body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+
+.btn-primary {
+  @apply px-4 py-2 bg-[#00C4CC] hover:bg-[#00AFBB] text-white font-semibold text-[13px] rounded-lg transition-colors disabled:opacity-60;
+}
+.btn-secondary {
+  @apply px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 font-medium text-[13px] rounded-lg border border-[#E0E0E0] transition-colors;
+}
+.btn-danger {
+  @apply px-4 py-2 bg-white hover:bg-red-50 text-red-500 font-medium text-[13px] rounded-lg border border-red-100 transition-colors;
+}
+.field-label {
+  @apply block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5;
+}
+.field-input {
+  @apply px-3 py-2 border border-[#E0E0E0] rounded-lg text-[13px] text-ink bg-white outline-none focus:border-[#00C4CC] focus:ring-2 focus:ring-[#00C4CC]/10 transition-colors;
+}
+.act-btn {
+  @apply w-7 h-7 rounded-md bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-[12px] text-gray-500 transition-colors;
+}
