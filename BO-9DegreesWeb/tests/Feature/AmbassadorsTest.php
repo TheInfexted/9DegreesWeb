@@ -36,12 +36,48 @@ class AmbassadorsTest extends CIUnitTestCase
         $this->assertEquals('Alex Tan', json_decode($result->getJSON(), true)['data']['name']);
     }
 
+    /** Empty string from a select "no team" option must not become FK 0. */
+    public function test_create_ambassador_with_empty_team_id(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/ambassadors', [
+                           'name'                   => 'No Team User',
+                           'role_id'                => 1,
+                           'team_id'                => '',
+                           'custom_commission_rate' => 10.00,
+                           'use_kpi_bonus'          => 0,
+                       ]);
+        $result->assertStatus(201);
+        $this->assertNull(json_decode($result->getJSON(), true)['data']['team_id']);
+    }
+
     public function test_list_ambassadors(): void
     {
         $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
                        ->get('/api/v1/ambassadors');
         $result->assertStatus(200);
         $this->assertNotEmpty(json_decode($result->getJSON(), true)['data']);
+    }
+
+    public function test_list_ambassadors_paginated_includes_meta(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/ambassadors?page=1&per_page=1');
+        $result->assertStatus(200);
+        $json = json_decode($result->getJSON(), true);
+        $this->assertArrayHasKey('meta', $json);
+        $this->assertCount(1, $json['data']);
+        $this->assertSame(1, $json['meta']['per_page']);
+        $this->assertGreaterThanOrEqual(2, $json['meta']['total']);
+    }
+
+    public function test_list_ambassadors_search_by_q(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/ambassadors?q=Johnny');
+        $result->assertStatus(200);
+        $names = array_column(json_decode($result->getJSON(), true)['data'], 'name');
+        $this->assertContains('Johnny', $names);
     }
 
     public function test_soft_delete_ambassador(): void

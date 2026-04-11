@@ -1,6 +1,6 @@
 <template>
   <select
-    :value="modelValue"
+    :value="modelValue ?? ''"
     class="w-full px-3 py-2 border border-[#E0E0E0] rounded-lg text-[13px] text-ink bg-white outline-none focus:border-[#00C4CC] focus:ring-2 focus:ring-[#00C4CC]/10 transition-colors"
     @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
   >
@@ -11,7 +11,8 @@
 
 <script setup lang="ts">
 defineProps<{
-  modelValue: string | number
+  /** API often sends null for optional FKs (e.g. no team). */
+  modelValue: string | number | null | undefined
   options: { value: string | number; label: string }[]
   placeholder?: string
 }>()

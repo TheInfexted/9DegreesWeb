@@ -33,6 +33,16 @@ abstract class BaseApiController extends ResourceController
         return $this->respond(['message' => $message], 400);
     }
 
+    /**
+     * Never use raw DB driver codes (e.g. MySQL 1452) as HTTP status.
+     */
+    protected function exceptionHttpStatus(\Throwable $e, int $fallback = 422): int
+    {
+        $code = (int) $e->getCode();
+
+        return ($code >= 400 && $code <= 599) ? $code : $fallback;
+    }
+
     protected function currentUser(): object
     {
         return $this->request->user;

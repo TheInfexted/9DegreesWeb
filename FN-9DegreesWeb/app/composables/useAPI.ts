@@ -1,10 +1,19 @@
 import { ref, watch, type Ref } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 
+export interface ListMeta {
+  page: number
+  per_page: number
+  total: number
+  last_page: number
+}
+
 interface UseAPIResult<T> {
   data: Ref<T | null>
   loading: Ref<boolean>
   error: Ref<string | null>
+  /** Present when the API returns a paginated payload (e.g. ambassadors?page=1). */
+  meta: Ref<ListMeta | null>
   refresh: () => Promise<void>
 }
 
@@ -17,6 +26,7 @@ export function useAPI<T = unknown>(
   const data     = ref<T | null>(null) as Ref<T | null>
   const loading  = ref(false)
   const error    = ref<string | null>(null)
+  const meta     = ref<ListMeta | null>(null)
 
   const buildUrl = (): string => {
     const p = (params && 'value' in (params as object)) ? (params as Ref).value : params
@@ -37,6 +47,7 @@ export function useAPI<T = unknown>(
         headers: { Authorization: `Bearer ${auth.token}` },
       })
       if (res.status === 401) {
+        meta.value = null
         auth.clear()
         navigateTo('/login')
         return
@@ -44,8 +55,10 @@ export function useAPI<T = unknown>(
       const json = await res.json()
       if (!res.ok) throw new Error(json.message ?? 'Request failed.')
       data.value = json.data ?? json
+      meta.value = json.meta ?? null
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : 'Unknown error'
+      meta.value  = null
     } finally {
       loading.value = false
     }
@@ -57,5 +70,5 @@ export function useAPI<T = unknown>(
     execute()
   }
 
-  return { data, loading, error, refresh: execute }
+  return { data, loading, error, meta, refresh: execute }
 }
