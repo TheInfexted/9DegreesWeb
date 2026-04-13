@@ -8,7 +8,16 @@
         </div>
         <div>
           <label class="field-label">Date</label>
-          <input v-model="form.date" type="date" class="field-input w-full" required />
+          <input
+            v-model="dateDisplay"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="DD/MM/YYYY"
+            class="field-input w-full"
+            required
+            @blur="normalizeDateDisplay"
+          />
         </div>
         <div>
           <label class="field-label">Sale Type</label>
@@ -47,6 +56,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { ddMmYyyyToIso, isoDateToDdMmYyyy } from '~/utils/dateFormat'
 
 const props = defineProps<{
   modelValue: boolean
@@ -60,8 +70,9 @@ const emit = defineEmits<{
 }>()
 
 const isEdit = computed(() => !!props.sale)
-const form   = ref({ ambassador_id: '', date: '', sale_type: 'Table', table_number: '', gross_amount: '', remarks: '' })
-const error  = ref<string | null>(null)
+const form        = ref({ ambassador_id: '', date: '', sale_type: 'Table', table_number: '', gross_amount: '', remarks: '' })
+const dateDisplay = ref('')
+const error       = ref<string | null>(null)
 const config = useRuntimeConfig()
 const auth   = useAuthStore()
 const loading = ref(false)
@@ -73,11 +84,31 @@ const ambassadorOpts = computed(() =>
 )
 
 watch(() => props.sale, (s) => {
-  if (s) form.value = { ambassador_id: s.ambassador_id, date: s.date, sale_type: s.sale_type, table_number: s.table_number ?? '', gross_amount: s.gross_amount, remarks: s.remarks ?? '' }
-  else form.value = { ambassador_id: '', date: new Date().toISOString().slice(0, 10), sale_type: 'Table', table_number: '', gross_amount: '', remarks: '' }
+  if (s) {
+    form.value = { ambassador_id: s.ambassador_id, date: s.date, sale_type: s.sale_type, table_number: s.table_number ?? '', gross_amount: s.gross_amount, remarks: s.remarks ?? '' }
+  } else {
+    form.value = { ambassador_id: '', date: new Date().toISOString().slice(0, 10), sale_type: 'Table', table_number: '', gross_amount: '', remarks: '' }
+  }
+  dateDisplay.value = isoDateToDdMmYyyy(form.value.date)
 }, { immediate: true })
 
+function normalizeDateDisplay() {
+  const iso = ddMmYyyyToIso(dateDisplay.value)
+  if (iso) {
+    form.value.date = iso
+    dateDisplay.value = isoDateToDdMmYyyy(iso)
+  }
+}
+
 async function handleSubmit() {
+  normalizeDateDisplay()
+  const parsed = ddMmYyyyToIso(dateDisplay.value)
+  if (!parsed) {
+    error.value = 'Enter a valid date as DD/MM/YYYY.'
+    return
+  }
+  form.value.date = parsed
+
   loading.value = true
   error.value   = null
   try {

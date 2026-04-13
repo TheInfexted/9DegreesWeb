@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { formatMonthLabel } from '~/utils/dateFormat'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit  = defineEmits<{ 'update:modelValue': [boolean]; saved: [] }>()
@@ -53,7 +54,12 @@ const { data: months }      = useAPI('commissions/months')
 const { data: ambassadors } = useAPI('ambassadors', { status: 'active' })
 const { data: payouts }     = useAPI('payouts', computed(() => ({ month: selectedMonth.value })))
 
-const monthOpts = computed(() => (months.value ?? []).map((m: any) => ({ value: m.month, label: m.month })))
+const monthOpts = computed(() =>
+  (months.value ?? []).map((m: any) => ({
+    value: m.month,
+    label: formatMonthLabel(m.month),
+  }))
+)
 
 const eligibleAmbassadors = computed(() => {
   if (!selectedMonth.value) return []

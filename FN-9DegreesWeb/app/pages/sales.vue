@@ -14,7 +14,7 @@
         </p>
         <button
           type="button"
-          class="btn-secondary text-[13px] shrink-0"
+          class="btn-primary text-[13px] shrink-0"
           :disabled="confirmAllLoading"
           @click="doConfirmAll"
         >
