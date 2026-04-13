@@ -11,11 +11,16 @@
       <AppSelect v-model="filterPaid" :options="paidOpts" placeholder="All Statuses" class="min-w-[160px]" />
     </div>
 
+    <!--
+      Payouts summary (optional) — uncomment this block and the script block marked below to restore
+      GET /payouts/summary-driven count + commission total cards.
+
     <p class="text-[12px] text-gray-500 mb-2">{{ summaryScopeLabel }}</p>
     <div v-if="payoutSummaryCards" class="grid grid-cols-2 gap-3 mb-4">
       <AppCard label="Matching payouts" :value="payoutSummaryCards.count" />
       <AppCard label="Commission total" prefix="RM " :value="fmtPayoutCommission" />
     </div>
+    -->
 
     <!-- Table -->
     <AppTable :columns="columns" :rows="payouts" :loading="loading">
@@ -87,8 +92,6 @@ import { downloadPdf } from '~/utils/download'
 
 definePageMeta({ middleware: 'auth' })
 
-const NO_PAYOUT_SUMMARY_FILTERS: Record<string, unknown> = {}
-
 const showCreate  = ref(false)
 const filterPaid  = ref('')
 const listParams  = ref({ month: '', page: 1, per_page: 25 })
@@ -107,44 +110,55 @@ const payoutsQuery = computed(() => {
   return o
 })
 
-const payoutsSummaryParams = computed(() => {
-  const p = listParams.value
-  if (!p.month && filterPaid.value === '') return NO_PAYOUT_SUMMARY_FILTERS
-  const o: Record<string, unknown> = {}
-  if (p.month) o.month = p.month
-  if (filterPaid.value !== '') o.paid = filterPaid.value
-  return o
-})
-
 const { data: payouts, loading, meta, refresh: refreshPayoutsList } = useAPI('payouts', payoutsQuery)
-const { data: payoutSummaryRaw, refresh: refreshPayoutsSummary } = useAPI('payouts/summary', payoutsSummaryParams)
 const { data: months } = useAPI('payouts/months')
+
+/*
+ * --- Payouts summary (optional) — uncomment template + this block; then change refresh() below ---
+ *
+ * const NO_PAYOUT_SUMMARY_FILTERS: Record<string, unknown> = {}
+ *
+ * const payoutsSummaryParams = computed(() => {
+ *   const p = listParams.value
+ *   if (!p.month && filterPaid.value === '') return NO_PAYOUT_SUMMARY_FILTERS
+ *   const o: Record<string, unknown> = {}
+ *   if (p.month) o.month = p.month
+ *   if (filterPaid.value !== '') o.paid = filterPaid.value
+ *   return o
+ * })
+ *
+ * const { data: payoutSummaryRaw, refresh: refreshPayoutsSummary } = useAPI('payouts/summary', payoutsSummaryParams)
+ *
+ * const payoutSummaryCards = computed(() => {
+ *   const s = payoutSummaryRaw.value as { count?: number; commission_total?: number } | null
+ *   if (s == null || typeof s !== 'object') return null
+ *   return {
+ *     count:              Number(s.count ?? 0),
+ *     commission_total:   Number(s.commission_total ?? 0),
+ *   }
+ * })
+ *
+ * const summaryScopeLabel = computed(() => {
+ *   const filtered = !!(listParams.value.month || filterPaid.value !== '')
+ *   return filtered
+ *     ? 'Summary totals for the current filters (all matching rows, not just this page).'
+ *     : 'Summary totals across all payouts (no filters applied).'
+ * })
+ *
+ * const fmtPayoutCommission = computed(() =>
+ *   (payoutSummaryCards.value?.commission_total ?? 0).toLocaleString('en-MY', {
+ *     minimumFractionDigits: 2,
+ *     maximumFractionDigits: 2,
+ *   }),
+ * )
+ */
 
 const monthOpts = computed(() => (months.value ?? []).map((m: any) => ({ value: m.month, label: m.month })))
 const paidOpts  = [{ value: '1', label: 'Paid' }, { value: '0', label: 'Unpaid' }]
 
-const payoutSummaryCards = computed(() => {
-  const s = payoutSummaryRaw.value as { count?: number; commission_total?: number } | null
-  if (s == null || typeof s !== 'object') return null
-  return {
-    count:             Number(s.count ?? 0),
-    commission_total: Number(s.commission_total ?? 0),
-  }
-})
-
-const summaryScopeLabel = computed(() => {
-  const filtered = !!(listParams.value.month || filterPaid.value !== '')
-  return filtered
-    ? 'Summary totals for the current filters (all matching rows, not just this page).'
-    : 'Summary totals across all payouts (no filters applied).'
-})
-
-const fmtPayoutCommission = computed(() =>
-  (payoutSummaryCards.value?.commission_total ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-)
-
 async function refresh() {
-  await Promise.all([refreshPayoutsList(), refreshPayoutsSummary()])
+  await refreshPayoutsList()
+  // With summary restored: await Promise.all([refreshPayoutsList(), refreshPayoutsSummary()])
 }
 
 const perPageOpts = [
