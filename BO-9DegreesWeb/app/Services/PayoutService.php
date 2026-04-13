@@ -203,7 +203,7 @@ class PayoutService
             'companyAddress'      => $settings['company_address']       ?? '',
             'companyRegistration' => $settings['company_registration']  ?? '',
             'companyPhone'        => $settings['company_phone']         ?? '',
-            'generatedDate'       => date('d-m-Y'),
+            'generatedDate'       => date('d/m/Y'),
         ];
     }
 

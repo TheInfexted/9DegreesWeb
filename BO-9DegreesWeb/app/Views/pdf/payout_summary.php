@@ -76,7 +76,7 @@
     <tbody>
       <?php foreach ($sales as $sale): ?>
       <tr>
-        <td><?= date('d-m-Y', strtotime($sale['date'])) ?></td>
+        <td><?= date('d/m/Y', strtotime($sale['date'])) ?></td>
         <td><span class="pill pill-<?= strtolower($sale['sale_type']) ?>"><?= esc($sale['sale_type']) ?></span></td>
         <td><?= esc($sale['table_number'] ?? '—') ?></td>
         <td class="right"><?= number_format($sale['gross_amount'], 2) ?></td>
