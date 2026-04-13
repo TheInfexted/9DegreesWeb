@@ -38,10 +38,11 @@ class CommissionRepository
      *
      * Rules (spec §10):
      * 1. BGO always 10%.
-     * 2. Table: base rate = ambassador.custom_commission_rate
-     * 3. If use_kpi_bonus=1 AND kpi IS NOT NULL AND commission_increase IS NOT NULL:
+     * 2. Table + "Unassigned Sales": ambassador slice 0% (full Table pool goes to owner → Johnny at confirm).
+     * 3. Table (otherwise): base rate = ambassador.custom_commission_rate
+     * 4. If use_kpi_bonus=1 AND kpi IS NOT NULL AND commission_increase IS NOT NULL:
      *    - (confirmed monthly Table total + this sale amount) >= kpi → rate += commission_increase
-     * 4. "Unassigned Sales" uses Johnny's profile.
+     * 5. "Unassigned Sales" Table KPI path is skipped (handled by rule 2). BGO Unassigned is still 10%.
      */
     public function computeEffectiveRate(int $saleId): float
     {
@@ -50,6 +51,10 @@ class CommissionRepository
 
         if ($sale['sale_type'] === 'BGO') {
             return 10.00;
+        }
+
+        if ($sale['sale_type'] === 'Table' && $this->isUnassignedSales((int) $sale['ambassador_id'])) {
+            return 0.00;
         }
 
         $ambassador = $this->resolveAmbassadorProfile((int) $sale['ambassador_id']);
@@ -63,11 +68,6 @@ class CommissionRepository
             $yearMonth      = substr($sale['date'], 0, 7);
             $confirmedTotal = $this->getMonthlyTableSalesTotal((int) $sale['ambassador_id'], $yearMonth);
 
-            if ($this->isUnassignedSales((int) $sale['ambassador_id'])) {
-                $johnny = $this->getJohnnyAmbassador();
-                $confirmedTotal += $this->getMonthlyTableSalesTotal((int) $johnny['id'], $yearMonth);
-            }
-
             $totalIncludingCurrent = $confirmedTotal + (float) $sale['gross_amount'];
 
             if ($totalIncludingCurrent >= (float) $ambassador['kpi']) {
@@ -76,6 +76,39 @@ class CommissionRepository
         }
 
         return round($baseRate, 2);
+    }
+
+    /**
+     * Frozen rates at confirm: ambassador slice (payouts) + owner remainder on Table pool.
+     * Unassigned Sales + Table: ambassador 0%, owner = full pool (12%) — all to Johnny.
+     *
+     * @return array{ambassador_rate: float, owner_rate: float}
+     */
+    public function resolveFrozenCommissionRates(int $saleId): array
+    {
+        $sale = $this->saleModel->find($saleId);
+        if (!$sale) {
+            throw new \RuntimeException("Sale {$saleId} not found.", 404);
+        }
+
+        $ambassadorRate = $this->computeEffectiveRate($saleId);
+
+        if ($sale['sale_type'] === 'BGO') {
+            return ['ambassador_rate' => $ambassadorRate, 'owner_rate' => 0.0];
+        }
+
+        $pool = (float) config('Commission')->tableCommissionPoolPercent;
+        if ($ambassadorRate > $pool) {
+            throw new \RuntimeException(
+                'Ambassador commission rate exceeds the table commission pool (12%).',
+                422
+            );
+        }
+
+        return [
+            'ambassador_rate' => $ambassadorRate,
+            'owner_rate'      => round($pool - $ambassadorRate, 2),
+        ];
     }
 
     public function countReport(array $filters): int
@@ -98,12 +131,17 @@ class CommissionRepository
         $page    = max(1, $page);
         $offset  = ($page - 1) * $perPage;
 
-        $builder = $this->makeReportBuilder();
+        $johnnyScope = $this->johnnyReportFilterAmbassadorId($filters);
+        $builder     = $this->makeReportBuilder();
         $this->applyReportFilters($builder, $filters);
         // Do not use findAll() here: BaseModel::doFindAll() reapplies limit(0,0) and drops the chained limit.
         $builder->limit($perPage, $offset);
 
-        return $builder->get()->getResultArray();
+        $rows = $builder->get()->getResultArray();
+
+        return $johnnyScope !== null
+            ? $this->applyJohnnyFilteredReportRows($rows, $johnnyScope)
+            : $rows;
     }
 
     /**
@@ -113,24 +151,50 @@ class CommissionRepository
      */
     public function getReport(array $filters = []): array
     {
-        $builder = $this->makeReportBuilder();
+        $johnnyScope = $this->johnnyReportFilterAmbassadorId($filters);
+        $builder     = $this->makeReportBuilder();
         $this->applyReportFilters($builder, $filters);
 
-        return $builder->get()->getResultArray();
+        $rows = $builder->get()->getResultArray();
+
+        return $johnnyScope !== null
+            ? $this->applyJohnnyFilteredReportRows($rows, $johnnyScope)
+            : $rows;
     }
 
     /**
-     * @return array{total: float, table: float, bgo: float}
+     * @return array{total: float, table: float, bgo: float, owner_total: float, owner_table: float, owner_bgo: float}
      */
     public function getReportSummary(array $filters): array
     {
         // Single-table aggregate: unqualified columns match the query builder's FROM table
         // (works with DBPrefix / SQLite tests; joins were unused for filters).
+        $johnnyScopeId = $this->johnnyReportFilterAmbassadorId($filters);
+        $pool          = (float) config('Commission')->tableCommissionPoolPercent;
+        $lineAmb       = 'ROUND(gross_amount * confirmed_commission_rate / 100, 2)';
+        if ($johnnyScopeId !== null) {
+            $jid       = (int) $johnnyScopeId;
+            $lineOwner = 'CASE WHEN sale_type = \'Table\' AND ambassador_id != ' . $jid
+                . ' AND confirmed_owner_commission_rate IS NULL '
+                . 'THEN ROUND(gross_amount * (CASE WHEN ' . $pool . ' - confirmed_commission_rate > 0 THEN '
+                . $pool . ' - confirmed_commission_rate ELSE 0 END) / 100, 2) '
+                . 'ELSE ROUND(gross_amount * COALESCE(confirmed_owner_commission_rate, 0) / 100, 2) END';
+        } else {
+            $lineOwner = 'ROUND(gross_amount * COALESCE(confirmed_owner_commission_rate, 0) / 100, 2)';
+        }
+        $effectiveLine = $johnnyScopeId !== null
+            ? 'CASE WHEN ambassador_id != ' . (int) $johnnyScopeId
+                . ' THEN ' . $lineOwner . ' ELSE ' . $lineAmb . ' END'
+            : $lineAmb;
+
         $b = $this->saleModel->builder();
         $b->select(
-            'COALESCE(SUM(ROUND(gross_amount * confirmed_commission_rate / 100, 2)), 0) AS total, '
-            . 'COALESCE(SUM(CASE WHEN sale_type = \'Table\' THEN ROUND(gross_amount * confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS table_total, '
-            . 'COALESCE(SUM(CASE WHEN sale_type = \'BGO\' THEN ROUND(gross_amount * confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS bgo_total',
+            'COALESCE(SUM(' . $effectiveLine . '), 0) AS total, '
+            . 'COALESCE(SUM(CASE WHEN sale_type = \'Table\' THEN (' . $effectiveLine . ') ELSE 0 END), 0) AS table_total, '
+            . 'COALESCE(SUM(CASE WHEN sale_type = \'BGO\' THEN (' . $effectiveLine . ') ELSE 0 END), 0) AS bgo_total, '
+            . 'COALESCE(SUM(' . $lineOwner . '), 0) AS owner_total, '
+            . 'COALESCE(SUM(CASE WHEN sale_type = \'Table\' THEN ' . $lineOwner . ' ELSE 0 END), 0) AS owner_table, '
+            . 'COALESCE(SUM(CASE WHEN sale_type = \'BGO\' THEN ' . $lineOwner . ' ELSE 0 END), 0) AS owner_bgo',
             false
         )
             ->where('status', 'confirmed');
@@ -139,9 +203,12 @@ class CommissionRepository
         $row = $b->get()->getRowArray();
 
         return [
-            'total' => (float) ($row['total'] ?? 0),
-            'table' => (float) ($row['table_total'] ?? 0),
-            'bgo'   => (float) ($row['bgo_total'] ?? 0),
+            'total'       => (float) ($row['total'] ?? 0),
+            'table'       => (float) ($row['table_total'] ?? 0),
+            'bgo'         => (float) ($row['bgo_total'] ?? 0),
+            'owner_total' => (float) ($row['owner_total'] ?? 0),
+            'owner_table' => (float) ($row['owner_table'] ?? 0),
+            'owner_bgo'   => (float) ($row['owner_bgo'] ?? 0),
         ];
     }
 
@@ -172,6 +239,7 @@ class CommissionRepository
             ->join('teams', "{$tT}.id = {$tA}.team_id", 'left')
             ->whereIn("{$tA}.id", $ids)
             ->where("{$tA}.status", 'active')
+            ->whereNotIn("{$tA}.name", ['Johnny', 'Unassigned Sales'])
             ->orderBy("{$tA}.name", 'ASC')
             ->findAll();
     }
@@ -208,6 +276,61 @@ class CommissionRepository
         return $this->saleModel->db->prefixTable($this->saleModel->getTable());
     }
 
+    /**
+     * When the report is filtered to Johnny, remap rate/amount per row in PHP so owner slices
+     * from other ambassadors' Table sales always show pool − ambassador (and survive driver/ORM quirks).
+     *
+     * @param list<array<string,mixed>> $rows
+     * @return list<array<string,mixed>>
+     */
+    private function applyJohnnyFilteredReportRows(array $rows, int $johnnyId): array
+    {
+        foreach ($rows as $i => $row) {
+            $rows[$i] = $this->presentRowForJohnnyCommissionReport($row, $johnnyId);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
+    private function presentRowForJohnnyCommissionReport(array $row, int $johnnyId): array
+    {
+        $aid = (int) ($row['ambassador_id'] ?? 0);
+        if ($aid !== $johnnyId && ($row['sale_type'] ?? '') === 'Table') {
+            $ownerRate = $this->effectiveTableOwnerRatePercent($row);
+            $gross     = (float) ($row['gross_amount'] ?? 0);
+            $row['report_commission_rate']  = $ownerRate;
+            $row['commission_amount']       = round($gross * $ownerRate / 100, 2);
+            $row['owner_commission_amount'] = round($gross * $ownerRate / 100, 2);
+        } else {
+            $ambRate = (float) ($row['confirmed_commission_rate'] ?? 0);
+            $gross   = (float) ($row['gross_amount'] ?? 0);
+            $row['report_commission_rate'] = $ambRate;
+            $row['commission_amount']      = round($gross * $ambRate / 100, 2);
+        }
+
+        return $row;
+    }
+
+    /**
+     * Stored owner %, or pool − ambassador when owner was not persisted (legacy rows).
+     */
+    private function effectiveTableOwnerRatePercent(array $row): float
+    {
+        $raw = $row['confirmed_owner_commission_rate'] ?? null;
+        if ($raw !== null && $raw !== '') {
+            return round((float) $raw, 2);
+        }
+
+        $pool = (float) config('Commission')->tableCommissionPoolPercent;
+        $amb  = (float) ($row['confirmed_commission_rate'] ?? 0);
+
+        return max(0.0, round($pool - $amb, 2));
+    }
+
     private function makeReportBuilder(): SaleModel
     {
         $db = $this->saleModel->db;
@@ -215,10 +338,15 @@ class CommissionRepository
         $tA = $db->prefixTable('ambassadors');
         $tR = $db->prefixTable('roles');
 
+        $commissionExpr = 'ROUND(' . $tS . '.gross_amount * ' . $tS . '.confirmed_commission_rate / 100, 2)';
+        $reportRateExpr = $tS . '.confirmed_commission_rate';
+
         return $this->saleModel
             ->select(
                 "{$tS}.*, {$tA}.name as ambassador_name, {$tR}.name as role_name, "
-                . "ROUND({$tS}.gross_amount * {$tS}.confirmed_commission_rate / 100, 2) as commission_amount",
+                . "{$commissionExpr} as commission_amount, "
+                . "ROUND({$tS}.gross_amount * COALESCE({$tS}.confirmed_owner_commission_rate, 0) / 100, 2) as owner_commission_amount, "
+                . "{$reportRateExpr} as report_commission_rate",
                 false
             )
             ->join('ambassadors', "{$tA}.id = {$tS}.ambassador_id", 'left')
@@ -234,7 +362,7 @@ class CommissionRepository
     {
         $t = $this->prefixedSalesTable();
         if (!empty($filters['ambassador_id'])) {
-            $builder->where("{$t}.ambassador_id", $filters['ambassador_id']);
+            $this->applyAmbassadorScopeToReportQuery($builder, (int) $filters['ambassador_id'], $t);
         }
         if (!empty($filters['month'])) {
             $builder->where("SUBSTR({$t}.date, 1, 7)", $filters['month']);
@@ -247,11 +375,67 @@ class CommissionRepository
     private function applyReportFiltersToSalesBuilder(BaseBuilder $b, array $filters): void
     {
         if (!empty($filters['ambassador_id'])) {
-            $b->where('ambassador_id', $filters['ambassador_id']);
+            $this->applyAmbassadorScopeToSalesBuilder($b, (int) $filters['ambassador_id']);
         }
         if (!empty($filters['month'])) {
             $b->where("SUBSTR(date, 1, 7)", $filters['month']);
         }
+    }
+
+    /**
+     * When the report is filtered to Johnny, include Table sales by other ambassadors
+     * where Johnny earns the owner remainder (confirmed_owner_commission_rate).
+     */
+    private function johnnyReportFilterAmbassadorId(array $filters): ?int
+    {
+        if (empty($filters['ambassador_id'])) {
+            return null;
+        }
+        $wantId   = (int) $filters['ambassador_id'];
+        $johnnyId = $this->tryJohnnyAmbassadorId();
+
+        return ($johnnyId !== null && $wantId === $johnnyId) ? $johnnyId : null;
+    }
+
+    private function tryJohnnyAmbassadorId(): ?int
+    {
+        $johnny = $this->ambassadorModel->where('name', 'Johnny')->first();
+
+        return $johnny ? (int) $johnny['id'] : null;
+    }
+
+    private function applyAmbassadorScopeToReportQuery(SaleModel $builder, int $ambassadorId, string $tSales): void
+    {
+        $johnnyId = $this->tryJohnnyAmbassadorId();
+        if ($johnnyId !== null && $ambassadorId === $johnnyId) {
+            $builder->groupStart()
+                ->where("{$tSales}.ambassador_id", $johnnyId)
+                ->orGroupStart()
+                ->where("{$tSales}.sale_type", 'Table')
+                ->where("{$tSales}.ambassador_id !=", $johnnyId)
+                ->groupEnd()
+                ->groupEnd();
+
+            return;
+        }
+        $builder->where("{$tSales}.ambassador_id", $ambassadorId);
+    }
+
+    private function applyAmbassadorScopeToSalesBuilder(BaseBuilder $b, int $ambassadorId): void
+    {
+        $johnnyId = $this->tryJohnnyAmbassadorId();
+        if ($johnnyId !== null && $ambassadorId === $johnnyId) {
+            $b->groupStart()
+                ->where('ambassador_id', $johnnyId)
+                ->orGroupStart()
+                ->where('sale_type', 'Table')
+                ->where('ambassador_id !=', $johnnyId)
+                ->groupEnd()
+                ->groupEnd();
+
+            return;
+        }
+        $b->where('ambassador_id', $ambassadorId);
     }
 
     private function resolveAmbassadorProfile(int $ambassadorId): array

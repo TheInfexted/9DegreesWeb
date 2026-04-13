@@ -23,6 +23,7 @@
             v-for="(row, i) in rows"
             :key="i"
             class="border-b border-[#F8F8F8] hover:bg-[#FAFCFC] transition-colors last:border-b-0"
+            :class="getRowClass?.(row, i)"
           >
             <slot :row="row" />
           </tr>
@@ -37,5 +38,7 @@ defineProps<{
   columns: { key: string; label: string; align?: 'left' | 'right' }[]
   rows: unknown[] | null
   loading?: boolean
+  /** Optional per-row classes (e.g. highlight). */
+  getRowClass?: (row: unknown, index: number) => string | Record<string, boolean> | undefined
 }>()
 </script>

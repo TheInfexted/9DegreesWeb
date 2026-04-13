@@ -277,7 +277,7 @@ async function openCreate() {
 function openEdit(row: any) { editSale.value = row; showForm.value = true }
 
 async function doConfirm(row: any) {
-  const ok = await confirm('Confirm Sale', `Confirm this sale for ${row.ambassador_name}? The commission rate will be frozen.`)
+  const ok = await confirm('Confirm Sale', `Confirm this sale for ${row.ambassador_name}?`)
   if (!ok) return
   const config = useRuntimeConfig(); const auth = useAuthStore()
   await fetch(`${config.public.apiBase}/sales/${row.id}/confirm`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } })

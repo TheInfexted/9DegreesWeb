@@ -95,4 +95,23 @@ class AmbassadorsTest extends CIUnitTestCase
         $result->assertStatus(200);
         $this->assertEquals('inactive', json_decode($result->getJSON(), true)['data']['status']);
     }
+
+    public function test_update_rejects_base_plus_kpi_bonus_over_table_pool(): void
+    {
+        $create = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/ambassadors', [
+                           'name'                   => 'KPI Cap',
+                           'role_id'                => 1,
+                           'custom_commission_rate' => 10,
+                           'kpi'                    => 1000,
+                           'commission_increase'    => 2,
+                           'use_kpi_bonus'          => 1,
+                       ]);
+        $id = json_decode($create->getJSON(), true)['data']['id'];
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->withBodyFormat('json')
+                       ->put("/api/v1/ambassadors/{$id}", ['commission_increase' => 3]);
+        $result->assertStatus(422);
+    }
 }

@@ -14,15 +14,21 @@
       <AppCard label="BGO Commission" prefix="RM " :value="fmt(summaryCards.bgo)" />
     </div>
 
+    <div v-if="commissionLegendLines.length" class="space-y-1 mb-2">
+      <p v-for="(line, i) in commissionLegendLines" :key="i" class="text-[11px] text-gray-500">
+        {{ line }}
+      </p>
+    </div>
+
     <!-- Table -->
-    <AppTable :columns="columns" :rows="sales" :loading="loading">
+    <AppTable :columns="columns" :rows="sales" :loading="loading" :get-row-class="commissionRowClass">
       <template #default="{ row }">
         <td class="px-4 py-3 text-[13px]">{{ formatDate(row.date) }}</td>
         <td class="px-4 py-3"><AppBadge :variant="row.sale_type === 'Table' ? 'confirmed' : 'ambassador'">{{ row.sale_type }}</AppBadge></td>
         <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.table_number ?? '—' }}</td>
         <td class="px-4 py-3 text-[13px] text-ink font-medium">{{ row.ambassador_name }}</td>
         <td class="px-4 py-3 text-[13px] text-right font-semibold">{{ formatRM(row.gross_amount) }}</td>
-        <td class="px-4 py-3 text-[13px] text-right text-gray-500">{{ row.confirmed_commission_rate }}%</td>
+        <td class="px-4 py-3 text-[13px] text-right text-gray-500">{{ displayReportRate(row) }}%</td>
         <td class="px-4 py-3 text-[13px] text-right font-semibold text-[#00A0A6]">{{ formatRM(row.commission_amount) }}</td>
       </template>
     </AppTable>
@@ -118,6 +124,47 @@ const { data: ambassadors }          = useAPI('ambassadors', { status: 'active' 
 const monthOpts      = computed(() => (months.value ?? []).map((m: any) => ({ value: m.month, label: m.month })))
 const ambassadorOpts = computed(() => (ambassadors.value ?? []).map((a: any) => ({ value: a.id, label: a.name })))
 
+/** Johnny-only commission view: Table rows from other ambassadors are his pool remainder. */
+const isJohnnyAmbassadorFilter = computed(() => {
+  const id = listParams.value.ambassador_id
+  if (id === '' || id == null) return false
+  const list = (ambassadors.value ?? []) as { id: number | string; name: string }[]
+  const a = list.find((x) => String(x.id) === String(id))
+  return a?.name === 'Johnny'
+})
+
+function isUnassignedSalesCommissionRow(r: Record<string, unknown>): boolean {
+  return String(r.ambassador_name ?? '') === 'Unassigned Sales'
+}
+
+function commissionRowClass(row: unknown): string | undefined {
+  if (!row || typeof row !== 'object') return undefined
+  const r = row as Record<string, unknown>
+
+  if (isUnassignedSalesCommissionRow(r)) {
+    return 'bg-[#FFF8E6]/95 border-l-[3px] border-l-[#E6A317] hover:bg-[#FFF3D6]/95'
+  }
+
+  if (!isJohnnyAmbassadorFilter.value) return undefined
+  if (r.sale_type !== 'Table') return undefined
+  const filterId = Number(listParams.value.ambassador_id)
+  const aid = Number(r.ambassador_id)
+  if (!Number.isFinite(filterId) || !Number.isFinite(aid) || aid === filterId) return undefined
+  return 'bg-[#E6F7F8]/90 border-l-[3px] border-l-[#00C4CC] hover:bg-[#D8F0F2]/95'
+}
+
+const commissionLegendLines = computed(() => {
+  const rows = (sales.value ?? []) as Record<string, unknown>[]
+  const lines: string[] = []
+  if (rows.some((r) => isUnassignedSalesCommissionRow(r))) {
+    lines.push('Amber highlight: sale under Unassigned Sales (Table pool is 12% to owner; BGO stays 10% on that row).')
+  }
+  if (isJohnnyAmbassadorFilter.value && rows.length > 0) {
+    lines.push('Teal highlight: your Table pool share from another ambassador’s sale (12% total minus their rate).')
+  }
+  return lines
+})
+
 const summaryCards = computed(() => {
   const s = summaryPayload.value as { total?: number; table?: number; bgo?: number } | null
   if (s == null || typeof s !== 'object') return null
@@ -168,6 +215,12 @@ function goPage(p: number) {
 }
 
 const fmt = (n: number) => n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+function displayReportRate(row: Record<string, unknown>): string {
+  const r = row.report_commission_rate
+  if (r !== undefined && r !== null && r !== '') return Number(r).toFixed(2)
+  return row.confirmed_commission_rate != null ? String(row.confirmed_commission_rate) : '—'
+}
 
 const columns = [
   { key: 'date',   label: 'Date'            },

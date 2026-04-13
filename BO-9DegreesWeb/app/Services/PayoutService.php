@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Repositories\AmbassadorRepository;
 use App\Repositories\PayoutRepository;
 
 class PayoutService
@@ -13,7 +14,8 @@ class PayoutService
 
     public function __construct(
         private PayoutRepository $repo = new PayoutRepository(),
-        private CommissionService $commissionService = new CommissionService()
+        private CommissionService $commissionService = new CommissionService(),
+        private AmbassadorRepository $ambassadorRepo = new AmbassadorRepository()
     ) {}
 
     public function list(array $filters = []): array
@@ -60,6 +62,8 @@ class PayoutService
 
     public function create(int $ambassadorId, string $month): array
     {
+        $this->assertPayoutAllowedForAmbassador($ambassadorId);
+
         $normalizedMonth = date('Y-m-01', strtotime($month));
 
         $existing = $this->repo->findByAmbassadorAndMonth($ambassadorId, $normalizedMonth);
@@ -241,5 +245,13 @@ class PayoutService
     {
         $rows = db_connect()->table('settings')->get()->getResultArray();
         return array_combine(array_column($rows, 'key'), array_column($rows, 'value'));
+    }
+
+    private function assertPayoutAllowedForAmbassador(int $ambassadorId): void
+    {
+        $johnny = $this->ambassadorRepo->findByName('Johnny');
+        if ($johnny !== null && $ambassadorId === (int) $johnny['id']) {
+            throw new \RuntimeException('Payouts cannot be created for the owner account.', 400);
+        }
     }
 }

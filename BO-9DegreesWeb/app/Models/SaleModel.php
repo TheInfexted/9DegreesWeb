@@ -12,6 +12,7 @@ class SaleModel extends Model
     protected $allowedFields = [
         'ambassador_id', 'team_id', 'date', 'table_number', 'sale_type',
         'gross_amount', 'status', 'remarks', 'confirmed_commission_rate',
+        'confirmed_owner_commission_rate',
         'confirmed_at', 'created_by',
     ];
     protected $useTimestamps = true;

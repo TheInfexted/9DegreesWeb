@@ -56,6 +56,7 @@ class CommissionTest extends CIUnitTestCase
         $data = json_decode($result->getJSON(), true)['data'];
         $this->assertEquals('confirmed', $data['status']);
         $this->assertEquals(10.00, (float) $data['confirmed_commission_rate']);
+        $this->assertEquals(0.00, (float) $data['confirmed_owner_commission_rate']);
     }
 
     /** Table sale below KPI threshold → base rate only */
@@ -83,6 +84,7 @@ class CommissionTest extends CIUnitTestCase
 
         $data = json_decode($result->getJSON(), true)['data'];
         $this->assertEquals(8.00, (float) $data['confirmed_commission_rate']);
+        $this->assertEquals(4.00, (float) $data['confirmed_owner_commission_rate']);
     }
 
     /** Table sale that meets KPI threshold → base rate + commission_increase */
@@ -110,6 +112,36 @@ class CommissionTest extends CIUnitTestCase
 
         $data = json_decode($result->getJSON(), true)['data'];
         $this->assertEquals(10.00, (float) $data['confirmed_commission_rate']); // 8 + 2
+        $this->assertEquals(2.00, (float) $data['confirmed_owner_commission_rate']);
+    }
+
+    /** KPI bonus disabled → base rate only; owner still gets 12% pool remainder */
+    public function test_table_sale_kpi_off_10_percent_base_owner_two_percent(): void
+    {
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->withBodyFormat('json')
+             ->put("/api/v1/ambassadors/{$this->ambassadorId}", [
+                 'custom_commission_rate' => 10,
+                 'use_kpi_bonus'          => 0,
+             ]);
+
+        $create = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/sales', [
+                           'ambassador_id' => $this->ambassadorId,
+                           'date'          => '2025-12-02',
+                           'sale_type'     => 'Table',
+                           'table_number'  => 'T-KPI-OFF',
+                           'gross_amount'  => 500,
+                       ]);
+        $saleId = json_decode($create->getJSON(), true)['data']['id'];
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post("/api/v1/sales/{$saleId}/confirm");
+        $result->assertStatus(200);
+
+        $data = json_decode($result->getJSON(), true)['data'];
+        $this->assertEquals(10.00, (float) $data['confirmed_commission_rate']);
+        $this->assertEquals(2.00, (float) $data['confirmed_owner_commission_rate']);
     }
 
     /** Confirmed rate is frozen — changing ambassador rate afterwards has no effect */
@@ -138,7 +170,9 @@ class CommissionTest extends CIUnitTestCase
         $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
                        ->get("/api/v1/sales/{$saleId}");
         $result->assertStatus(200);
-        $this->assertEquals(8.00, (float) json_decode($result->getJSON(), true)['data']['confirmed_commission_rate']);
+        $payload = json_decode($result->getJSON(), true)['data'];
+        $this->assertEquals(8.00, (float) $payload['confirmed_commission_rate']);
+        $this->assertEquals(4.00, (float) $payload['confirmed_owner_commission_rate']);
     }
 
     /** Voiding a sale clears the confirmed rate */
@@ -164,6 +198,7 @@ class CommissionTest extends CIUnitTestCase
         $data = json_decode($result->getJSON(), true)['data'];
         $this->assertEquals('void', $data['status']);
         $this->assertNull($data['confirmed_commission_rate']);
+        $this->assertNull($data['confirmed_owner_commission_rate']);
     }
 
     public function test_commissions_index_empty_ok(): void
@@ -196,6 +231,8 @@ class CommissionTest extends CIUnitTestCase
         $summary->assertStatus(200);
         $sum = json_decode($summary->getJSON(), true)['data'];
         $this->assertGreaterThan(0, (float) ($sum['total'] ?? 0));
+        $this->assertGreaterThan(0, (float) ($sum['owner_total'] ?? 0));
+        $this->assertGreaterThan(0, (float) ($sum['owner_table'] ?? 0));
 
         $list = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
                      ->get('/api/v1/commissions?month=2025-12&page=1&per_page=25');
@@ -203,6 +240,7 @@ class CommissionTest extends CIUnitTestCase
         $json = json_decode($list->getJSON(), true);
         $this->assertGreaterThanOrEqual(1, (int) ($json['meta']['total'] ?? 0));
         $this->assertNotEmpty($json['data']);
+        $this->assertArrayHasKey('owner_commission_amount', $json['data'][0]);
 
         $amb = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
                     ->get('/api/v1/commissions/ambassadors-for-month?month=2025-12');
@@ -211,5 +249,64 @@ class CommissionTest extends CIUnitTestCase
         $this->assertIsArray($rows);
         $ids = array_column($rows, 'id');
         $this->assertContains($this->ambassadorId, $ids);
+    }
+
+    /** Filtering commissions to Johnny must include Table owner remainder on other ambassadors' sales. */
+    public function test_johnny_filter_includes_owner_share_from_other_ambassadors_table_sales(): void
+    {
+        $johnnyId = (int) \Config\Database::connect()->table('ambassadors')->where('name', 'Johnny')->get()->getRow()->id;
+
+        $create = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/sales', [
+                           'ambassador_id' => $this->ambassadorId,
+                           'date'          => '2026-01-10',
+                           'sale_type'     => 'Table',
+                           'table_number'  => 'T-JOHNNY-VIEW',
+                           'gross_amount'  => 2500,
+                       ]);
+        $saleId = json_decode($create->getJSON(), true)['data']['id'];
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post("/api/v1/sales/{$saleId}/confirm");
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get("/api/v1/commissions?ambassador_id={$johnnyId}&month=2026-01&page=1&per_page=25");
+        $result->assertStatus(200);
+        $json = json_decode($result->getJSON(), true);
+        $rows = $json['data'];
+        $this->assertNotEmpty($rows);
+
+        $match = null;
+        foreach ($rows as $r) {
+            if (($r['table_number'] ?? '') === 'T-JOHNNY-VIEW') {
+                $match = $r;
+                break;
+            }
+        }
+        $this->assertNotNull($match, 'Expected other ambassador Table sale in Johnny-filtered report');
+        $this->assertEqualsWithDelta(100.0, (float) $match['commission_amount'], 0.02);
+        $this->assertEqualsWithDelta(4.0, (float) ($match['report_commission_rate'] ?? 0), 0.02);
+    }
+
+    /** Table sales under Unassigned: no ambassador slice; full Table pool (12%) is owner (Johnny). */
+    public function test_unassigned_table_sale_zero_ambassador_full_pool_owner(): void
+    {
+        $unassignedId = (int) \Config\Database::connect()->table('ambassadors')->where('name', 'Unassigned Sales')->get()->getRow()->id;
+
+        $create = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/sales', [
+                           'ambassador_id' => $unassignedId,
+                           'date'          => '2026-02-01',
+                           'sale_type'     => 'Table',
+                           'table_number'  => 'U-01',
+                           'gross_amount'  => 1000,
+                       ]);
+        $saleId = json_decode($create->getJSON(), true)['data']['id'];
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post("/api/v1/sales/{$saleId}/confirm");
+        $result->assertStatus(200);
+        $data = json_decode($result->getJSON(), true)['data'];
+        $this->assertEquals(0.0, (float) $data['confirmed_commission_rate']);
+        $this->assertEquals(12.0, (float) $data['confirmed_owner_commission_rate']);
     }
 }

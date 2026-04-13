@@ -19,6 +19,14 @@ class CommissionService
         return $this->repo->computeEffectiveRate((int) $sale['id']);
     }
 
+    /**
+     * @return array{ambassador_rate: float, owner_rate: float}
+     */
+    public function resolveFrozenCommissionRates(int $saleId): array
+    {
+        return $this->repo->resolveFrozenCommissionRates($saleId);
+    }
+
     public function getReport(array $filters = []): array
     {
         return $this->repo->getReport($filters);
@@ -47,7 +55,7 @@ class CommissionService
     }
 
     /**
-     * @return array{total: float, table: float, bgo: float}
+     * @return array{total: float, table: float, bgo: float, owner_total: float, owner_table: float, owner_bgo: float}
      */
     public function getReportSummary(array $filters): array
     {

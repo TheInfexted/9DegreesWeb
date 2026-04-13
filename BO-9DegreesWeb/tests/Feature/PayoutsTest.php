@@ -58,6 +58,18 @@ class PayoutsTest extends CIUnitTestCase
         $this->assertNull($data['paid_at']);
     }
 
+    public function test_payout_for_johnny_rejected(): void
+    {
+        $johnnyId = (int) \Config\Database::connect()->table('ambassadors')->where('name', 'Johnny')->get()->getRow()->id;
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/payouts', [
+                           'ambassador_id' => $johnnyId,
+                           'month'         => '2025-12-01',
+                       ]);
+        $result->assertStatus(400);
+    }
+
     public function test_duplicate_payout_returns_400(): void
     {
         $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])

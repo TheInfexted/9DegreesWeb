@@ -137,13 +137,13 @@ class SaleService
         if (!$sale) throw new \RuntimeException('Sale not found.', 404);
         if ($sale['status'] !== 'draft') throw new \RuntimeException('Only draft sales can be confirmed.', 400);
 
-        $ambassador = $this->ambassadorRepo->findById($sale['ambassador_id']);
-        $rate = $commissionService->resolveRate($sale, $ambassador);
+        $rates = $commissionService->resolveFrozenCommissionRates($id);
 
         return $this->saleRepo->update($id, [
-            'status'                    => 'confirmed',
-            'confirmed_commission_rate' => $rate,
-            'confirmed_at'              => date('Y-m-d H:i:s'),
+            'status'                            => 'confirmed',
+            'confirmed_commission_rate'         => $rates['ambassador_rate'],
+            'confirmed_owner_commission_rate'   => $rates['owner_rate'],
+            'confirmed_at'                      => date('Y-m-d H:i:s'),
         ]);
     }
 
@@ -154,9 +154,10 @@ class SaleService
         if ($sale['status'] === 'void') throw new \RuntimeException('Sale is already voided.', 400);
 
         return $this->saleRepo->update($id, [
-            'status'                    => 'void',
-            'confirmed_commission_rate' => null,
-            'confirmed_at'              => null,
+            'status'                            => 'void',
+            'confirmed_commission_rate'         => null,
+            'confirmed_owner_commission_rate'   => null,
+            'confirmed_at'                      => null,
         ]);
     }
 

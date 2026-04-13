@@ -60,6 +60,8 @@ class AmbassadorService
         if (isset($data['custom_commission_rate'])) {
             $this->validateCommissionRate((float) $data['custom_commission_rate']);
         }
+        $this->validateTableCommissionCap($data, $amb);
+
         return $this->repo->update($id, $data);
     }
 
@@ -124,12 +126,41 @@ class AmbassadorService
         if (isset($data['custom_commission_rate'])) {
             $this->validateCommissionRate((float) $data['custom_commission_rate']);
         }
+        $this->validateTableCommissionCap($data, null);
     }
 
     private function validateCommissionRate(float $rate): void
     {
         if ($rate < 0 || $rate > self::MAX_COMMISSION_RATE) {
             throw new \RuntimeException('Commission rate must be between 0 and 12.', 422);
+        }
+    }
+
+    /**
+     * Table pool is 12%; ambassador rate + KPI bump must not exceed it.
+     *
+     * @param array<string,mixed> $data
+     * @param array<string,mixed>|null $existing
+     */
+    private function validateTableCommissionCap(array $data, ?array $existing): void
+    {
+        $base = isset($data['custom_commission_rate'])
+            ? (float) $data['custom_commission_rate']
+            : (float) ($existing['custom_commission_rate'] ?? 0);
+
+        $incRaw = array_key_exists('commission_increase', $data)
+            ? $data['commission_increase']
+            : ($existing['commission_increase'] ?? null);
+        $inc = ($incRaw !== null && $incRaw !== '')
+            ? (float) $incRaw
+            : null;
+
+        $useKpi = array_key_exists('use_kpi_bonus', $data)
+            ? (int) $data['use_kpi_bonus']
+            : (int) ($existing['use_kpi_bonus'] ?? 0);
+
+        if ($useKpi === 1 && $inc !== null && $base + $inc > self::MAX_COMMISSION_RATE) {
+            throw new \RuntimeException('Base commission plus KPI bonus cannot exceed 12%.', 422);
         }
     }
 }
