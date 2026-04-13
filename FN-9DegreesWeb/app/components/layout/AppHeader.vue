@@ -10,9 +10,13 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
       </button>
-      <!-- Logo (mobile only) -->
-      <div class="lg:hidden w-6 h-6 rounded-md bg-[#0A0A0A] flex items-center justify-center shrink-0">
-        <img src="~/assets/img/9degree.png" alt="9 Degrees" class="w-4 h-4 object-contain" />
+      <!-- Logo (mobile only; match sidebar / drawer framing) -->
+      <div class="lg:hidden w-11 h-11 rounded-xl bg-[#0A0A0A] overflow-hidden flex items-center justify-center shrink-0">
+        <img
+          src="~/assets/img/9degree.png"
+          alt="9 Degrees"
+          class="h-full w-full object-contain origin-center scale-[2.35] select-none pointer-events-none"
+        />
       </div>
       <h1 class="text-[16px] font-bold text-ink">{{ title }}</h1>
     </div>

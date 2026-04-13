@@ -18,13 +18,14 @@
           </div>
           <button class="p-1 text-gray-400 hover:text-gray-600" @click="$emit('close')">✕</button>
         </div>
-        <nav class="flex-1 overflow-y-auto px-2 py-3">
+        <nav class="flex-1 overflow-y-auto px-2 py-3 min-h-0">
           <div class="space-y-0.5">
             <div v-for="item in allNav" :key="item.to" @click="$emit('close')">
               <SidebarItem v-bind="item" />
             </div>
           </div>
         </nav>
+        <SidebarUserPanel @logged-out="$emit('close')" />
       </div>
     </div>
   </Transition>

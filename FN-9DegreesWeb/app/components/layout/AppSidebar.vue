@@ -23,28 +23,12 @@
       </div>
     </nav>
 
-    <!-- User Footer -->
-    <div class="px-2 py-3 border-t border-[#F0F0F0]">
-      <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[#FAFAFA]">
-        <div class="w-7 h-7 rounded-full bg-[#00C4CC22] flex items-center justify-center text-[10px] font-bold text-[#007a80] shrink-0">
-          {{ initials }}
-        </div>
-        <div class="min-w-0">
-          <div class="text-[12px] font-semibold text-ink truncate">{{ auth.user?.username }}</div>
-          <div class="text-[10px] text-gray-400 capitalize">{{ auth.user?.role }}</div>
-        </div>
-      </div>
-    </div>
+    <SidebarUserPanel />
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useAuthStore } from '~/stores/auth'
 import { mainSidebarNav, mgmtSidebarNav } from '~/config/sidebarNav'
-
-const auth = useAuthStore()
-const initials = computed(() => (auth.user?.username ?? 'U').slice(0, 2).toUpperCase())
 
 const mainNav = mainSidebarNav
 const mgmtNav = mgmtSidebarNav
