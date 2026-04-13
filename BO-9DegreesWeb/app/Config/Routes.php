@@ -45,6 +45,8 @@ $routes->group('api/v1', function ($routes) {
         // Sales
         $routes->get('sales/months',            'Api\SaleController::months');
         $routes->get('sales/latest-defaults',   'Api\SaleController::latestDefaults');
+        $routes->get('sales/summary',           'Api\SaleController::summary');
+        $routes->post('sales/confirm-drafts',   'Api\SaleController::confirmDrafts');
         $routes->get('sales',                   'Api\SaleController::index');
         $routes->post('sales',                  'Api\SaleController::create');
         $routes->get('sales/(:num)',             'Api\SaleController::show/$1');
@@ -55,10 +57,12 @@ $routes->group('api/v1', function ($routes) {
 
         // Commissions
         $routes->get('commissions/months',      'Api\CommissionController::months');
+        $routes->get('commissions/summary',     'Api\CommissionController::summary');
         $routes->get('commissions',             'Api\CommissionController::index');
 
         // Payouts
         $routes->get('payouts/months',                      'Api\PayoutController::months');
+        $routes->get('payouts/summary',                     'Api\PayoutController::summary');
         $routes->get('payouts',                             'Api\PayoutController::index');
         $routes->post('payouts',                            'Api\PayoutController::create');
         $routes->post('payouts/batch',                      'Api\PayoutController::createBatch');

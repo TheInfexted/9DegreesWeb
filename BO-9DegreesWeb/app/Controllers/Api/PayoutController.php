@@ -13,13 +13,27 @@ class PayoutController extends BaseApiController
         $this->payoutService = new PayoutService();
     }
 
+    public function summary(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        return $this->ok($this->payoutService->getSummary($this->payoutFiltersFromRequest()));
+    }
+
     public function index(): \CodeIgniter\HTTP\ResponseInterface
     {
-        $paid = $this->request->getGet('paid');
-        $filters = array_filter([
-            'month' => $this->request->getGet('month'),
-            'paid'  => $paid !== null ? (bool) $paid : null,
-        ], fn($v) => $v !== null);
+        $filters = $this->payoutFiltersFromRequest();
+
+        $pageGet = $this->request->getGet('page');
+        if ($pageGet !== null && $pageGet !== '') {
+            $page    = max(1, (int) $pageGet);
+            $perPage = max(1, min(100, (int) ($this->request->getGet('per_page') ?? 25)));
+            $result  = $this->payoutService->listPaginated($filters, $page, $perPage);
+
+            return $this->respond([
+                'data' => $result['items'],
+                'meta' => $result['meta'],
+            ], 200);
+        }
+
         return $this->ok($this->payoutService->list($filters));
     }
 
@@ -134,5 +148,28 @@ class PayoutController extends BaseApiController
         } catch (\RuntimeException $e) {
             return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
         }
+    }
+
+    /**
+     * @return array{month?: string, paid?: bool}
+     */
+    private function payoutFiltersFromRequest(): array
+    {
+        $filters = [];
+        $month   = $this->request->getGet('month');
+        if ($month !== null && $month !== '') {
+            $filters['month'] = $month;
+        }
+        $paidRaw = $this->request->getGet('paid');
+        if ($paidRaw !== null && $paidRaw !== '') {
+            $pr = (string) $paidRaw;
+            if (in_array($pr, ['1', 'true', 'yes'], true)) {
+                $filters['paid'] = true;
+            } elseif (in_array($pr, ['0', 'false', 'no'], true)) {
+                $filters['paid'] = false;
+            }
+        }
+
+        return $filters;
     }
 }

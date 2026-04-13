@@ -12,9 +12,62 @@ class SaleService
         private AmbassadorRepository $ambassadorRepo = new AmbassadorRepository()
     ) {}
 
-    public function list(array $filters = [], int $page = 1, int $perPage = 50): array
+    /**
+     * @return array{items: list<array<string,mixed>>, meta: array{page: int, per_page: int, total: int, last_page: int}}
+     */
+    public function listPaginated(array $filters, int $page, int $perPage): array
     {
-        return $this->saleRepo->findAll($filters, $page, $perPage);
+        $perPage  = max(1, min(100, $perPage));
+        $total    = $this->saleRepo->countFiltered($filters, true);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page     = max(1, min($page, $lastPage));
+        $items    = $total === 0 ? [] : $this->saleRepo->findPaginated($filters, $page, $perPage, true);
+
+        return [
+            'items' => $items,
+            'meta'  => [
+                'page'      => $page,
+                'per_page'  => $perPage,
+                'total'     => $total,
+                'last_page' => $lastPage,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{count: int, gross_total: float}
+     */
+    public function getSummary(array $filters): array
+    {
+        return $this->saleRepo->getAggregateSummary($filters);
+    }
+
+    /**
+     * Confirm every draft sale matching scope filters (ambassador, team, month, sale type). Status filter is ignored.
+     *
+     * @return array{confirmed: int, failed: list<array{id:int,message:string}>}
+     */
+    public function confirmAllDrafts(array $scopeFilters, CommissionService $commissionService): array
+    {
+        $ids = $this->saleRepo->findDraftIdsMatchingFilters($scopeFilters);
+        sort($ids);
+
+        $confirmed = 0;
+        $failed    = [];
+
+        foreach ($ids as $id) {
+            try {
+                $this->confirm($id, $commissionService);
+                $confirmed++;
+            } catch (\Throwable $e) {
+                $failed[] = [
+                    'id'      => $id,
+                    'message' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return ['confirmed' => $confirmed, 'failed' => $failed];
     }
 
     public function get(int $id): array

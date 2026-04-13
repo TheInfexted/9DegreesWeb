@@ -21,6 +21,36 @@ class PayoutService
         return $this->repo->findAll($filters);
     }
 
+    /**
+     * @return array{count: int, commission_total: float}
+     */
+    public function getSummary(array $filters): array
+    {
+        return $this->repo->getAggregateSummary($filters);
+    }
+
+    /**
+     * @return array{items: list<array<string,mixed>>, meta: array{page: int, per_page: int, total: int, last_page: int}}
+     */
+    public function listPaginated(array $filters, int $page, int $perPage): array
+    {
+        $perPage  = max(1, min(100, $perPage));
+        $total    = $this->repo->countFiltered($filters);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page     = max(1, min($page, $lastPage));
+        $items    = $total === 0 ? [] : $this->repo->findPaginated($filters, $page, $perPage);
+
+        return [
+            'items' => $items,
+            'meta'  => [
+                'page'      => $page,
+                'per_page'  => $perPage,
+                'total'     => $total,
+                'last_page' => $lastPage,
+            ],
+        ];
+    }
+
     public function get(int $id): array
     {
         $payout = $this->repo->findById($id);

@@ -59,11 +59,11 @@ class CommissionRepository
             && $ambassador['kpi'] !== null
             && $ambassador['commission_increase'] !== null
         ) {
-            $yearMonth     = substr($sale['date'], 0, 7);
+            $yearMonth      = substr($sale['date'], 0, 7);
             $confirmedTotal = $this->getMonthlyTableSalesTotal((int) $sale['ambassador_id'], $yearMonth);
 
             if ($this->isUnassignedSales((int) $sale['ambassador_id'])) {
-                $johnny         = $this->getJohnnyAmbassador();
+                $johnny = $this->getJohnnyAmbassador();
                 $confirmedTotal += $this->getMonthlyTableSalesTotal((int) $johnny['id'], $yearMonth);
             }
 
@@ -77,23 +77,72 @@ class CommissionRepository
         return round($baseRate, 2);
     }
 
+    public function countReport(array $filters): int
+    {
+        $builder = $this->makeReportBuilder();
+        $this->applyReportFilters($builder, $filters);
+
+        return $builder->countAllResults(false);
+    }
+
     /**
-     * Commission report: confirmed sales with frozen rates and commission amounts.
+     * @return list<array<string,mixed>>
+     */
+    public function findReportPaginated(array $filters, int $page, int $perPage): array
+    {
+        $perPage = max(1, $perPage);
+        $page    = max(1, $page);
+        $offset  = ($page - 1) * $perPage;
+
+        $builder = $this->makeReportBuilder();
+        $this->applyReportFilters($builder, $filters);
+
+        return $builder->limit($perPage, $offset)->findAll();
+    }
+
+    /**
+     * Commission report: confirmed sales with frozen rates and commission amounts (full list).
+     *
+     * @return list<array<string,mixed>>
      */
     public function getReport(array $filters = []): array
     {
-        $builder = $this->saleModel
-            ->select('sales.*, ambassadors.name as ambassador_name, roles.name as role_name,
-                      ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2) as commission_amount')
-            ->join('ambassadors', 'ambassadors.id = sales.ambassador_id', 'left')
-            ->join('roles', 'roles.id = ambassadors.role_id', 'left')
-            ->where('sales.status', 'confirmed')
-            ->orderBy('sales.date', 'DESC');
-
-        if (!empty($filters['ambassador_id'])) $builder->where('sales.ambassador_id', $filters['ambassador_id']);
-        if (!empty($filters['month']))          $builder->where("SUBSTR(sales.date, 1, 7)", $filters['month']);
+        $builder = $this->makeReportBuilder();
+        $this->applyReportFilters($builder, $filters);
 
         return $builder->findAll();
+    }
+
+    /**
+     * @return array{total: float, table: float, bgo: float}
+     */
+    public function getReportSummary(array $filters): array
+    {
+        $b = $this->saleModel->builder();
+        $b->select(
+            'COALESCE(SUM(ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2)), 0) AS total, '
+            . 'COALESCE(SUM(CASE WHEN sales.sale_type = \'Table\' THEN ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS table_total, '
+            . 'COALESCE(SUM(CASE WHEN sales.sale_type = \'BGO\' THEN ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS bgo_total',
+            false
+        )
+            ->join('ambassadors', 'ambassadors.id = sales.ambassador_id', 'left')
+            ->join('roles', 'roles.id = ambassadors.role_id', 'left')
+            ->where('sales.status', 'confirmed');
+
+        if (!empty($filters['ambassador_id'])) {
+            $b->where('sales.ambassador_id', $filters['ambassador_id']);
+        }
+        if (!empty($filters['month'])) {
+            $b->where("SUBSTR(sales.date, 1, 7)", $filters['month']);
+        }
+
+        $row = $b->get()->getRowArray();
+
+        return [
+            'total' => (float) ($row['total'] ?? 0),
+            'table' => (float) ($row['table_total'] ?? 0),
+            'bgo'   => (float) ($row['bgo_total'] ?? 0),
+        ];
     }
 
     /**
@@ -120,6 +169,33 @@ class CommissionRepository
             ->groupBy("SUBSTR(date, 1, 7)")
             ->orderBy('month', 'DESC')
             ->findAll();
+    }
+
+    private function makeReportBuilder(): SaleModel
+    {
+        return $this->saleModel
+            ->select(
+                'sales.*, ambassadors.name as ambassador_name, roles.name as role_name, '
+                . 'ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2) as commission_amount',
+                false
+            )
+            ->join('ambassadors', 'ambassadors.id = sales.ambassador_id', 'left')
+            ->join('roles', 'roles.id = ambassadors.role_id', 'left')
+            ->where('sales.status', 'confirmed')
+            ->orderBy('sales.date', 'DESC');
+    }
+
+    /**
+     * @param array{ambassador_id?: int|string, month?: string} $filters
+     */
+    private function applyReportFilters(SaleModel $builder, array $filters): void
+    {
+        if (!empty($filters['ambassador_id'])) {
+            $builder->where('sales.ambassador_id', $filters['ambassador_id']);
+        }
+        if (!empty($filters['month'])) {
+            $builder->where("SUBSTR(sales.date, 1, 7)", $filters['month']);
+        }
     }
 
     private function resolveAmbassadorProfile(int $ambassadorId): array

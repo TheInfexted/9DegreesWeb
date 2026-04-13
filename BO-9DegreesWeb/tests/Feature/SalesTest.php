@@ -85,9 +85,42 @@ class SalesTest extends CIUnitTestCase
              ]);
 
         $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
-                       ->get('/api/v1/sales?status=draft');
+                       ->get('/api/v1/sales?status=draft&page=1');
         $result->assertStatus(200);
-        $this->assertNotEmpty(json_decode($result->getJSON(), true)['data']);
+        $json = json_decode($result->getJSON(), true);
+        $this->assertArrayHasKey('meta', $json);
+        $this->assertNotEmpty($json['data']);
+        $this->assertGreaterThanOrEqual(1, $json['meta']['total']);
+    }
+
+    public function test_confirm_all_drafts(): void
+    {
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post('/api/v1/sales', [
+                 'ambassador_id' => $this->ambassadorId,
+                 'date'          => '2025-12-05',
+                 'sale_type'     => 'BGO',
+                 'gross_amount'  => 50,
+             ]);
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post('/api/v1/sales', [
+                 'ambassador_id' => $this->ambassadorId,
+                 'date'          => '2025-12-06',
+                 'sale_type'     => 'BGO',
+                 'gross_amount'  => 60,
+             ]);
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->withBodyFormat('json')
+                       ->post('/api/v1/sales/confirm-drafts', ['month' => '2025-12']);
+        $result->assertStatus(200);
+        $data = json_decode($result->getJSON(), true)['data'];
+        $this->assertEquals(2, $data['confirmed']);
+        $this->assertSame([], $data['failed']);
+
+        $list = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                      ->get('/api/v1/sales?status=draft&month=2025-12&page=1');
+        $this->assertEquals(0, json_decode($list->getJSON(), true)['meta']['total']);
     }
 
     public function test_delete_draft_sale(): void

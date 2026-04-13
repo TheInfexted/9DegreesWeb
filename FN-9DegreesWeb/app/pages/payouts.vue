@@ -7,8 +7,14 @@
 
     <!-- Filters -->
     <div class="flex flex-wrap gap-3 mb-4">
-      <AppSelect v-model="filters.month" :options="monthOpts" placeholder="All Months" class="min-w-[160px]" />
+      <AppSelect v-model="listParams.month" :options="monthOpts" placeholder="All Months" class="min-w-[160px]" />
       <AppSelect v-model="filterPaid" :options="paidOpts" placeholder="All Statuses" class="min-w-[160px]" />
+    </div>
+
+    <p class="text-[12px] text-gray-500 mb-2">{{ summaryScopeLabel }}</p>
+    <div v-if="payoutSummaryCards" class="grid grid-cols-2 gap-3 mb-4">
+      <AppCard label="Matching payouts" :value="payoutSummaryCards.count" />
+      <AppCard label="Commission total" prefix="RM " :value="fmtPayoutCommission" />
     </div>
 
     <!-- Table -->
@@ -30,32 +36,155 @@
       </template>
     </AppTable>
 
+    <div
+      v-if="meta"
+      class="bg-white border border-[#E8E8EC] rounded-2xl p-4 mt-4 shadow-sm flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+    >
+      <p class="text-[13px] text-gray-500 lg:pt-1">
+        <template v-if="meta.total === 0">No payouts match these filters.</template>
+        <template v-else>
+          Showing <span class="font-medium text-ink">{{ rangeStart }}</span>–<span class="font-medium text-ink">{{ rangeEnd }}</span>
+          of <span class="font-medium text-ink">{{ meta.total }}</span>
+        </template>
+      </p>
+      <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end">
+        <div class="w-full sm:w-40">
+          <AppSelect v-model="perPageSelect" :options="perPageOpts" aria-label="Rows per page" />
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="btn-secondary text-[13px] px-3 py-1.5 min-w-[5.5rem]"
+            :disabled="!meta.total || meta.page <= 1"
+            @click="goPage(meta.page - 1)"
+          >
+            Previous
+          </button>
+          <span class="text-[13px] text-gray-600 px-1 tabular-nums">
+            Page {{ meta.page }} of {{ meta.last_page }}
+          </span>
+          <button
+            type="button"
+            class="btn-secondary text-[13px] px-3 py-1.5 min-w-[5.5rem]"
+            :disabled="!meta.total || meta.page >= meta.last_page"
+            @click="goPage(meta.page + 1)"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+
     <PayoutCreateModal v-model="showCreate" @saved="refresh" />
   </NuxtLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { formatDate } from '~/utils/dateFormat'
 import { formatRM } from '~/utils/currency'
 import { downloadPdf } from '~/utils/download'
 
 definePageMeta({ middleware: 'auth' })
 
+const NO_PAYOUT_SUMMARY_FILTERS: Record<string, unknown> = {}
+
 const showCreate  = ref(false)
 const filterPaid  = ref('')
-const filters     = ref({ month: '' })
+const listParams  = ref({ month: '', page: 1, per_page: 25 })
 const config      = useRuntimeConfig()
 const auth        = useAuthStore()
 
-const { data: payouts, loading, refresh } = useAPI('payouts', computed(() => ({
-  month: filters.value.month || undefined,
-  paid:  filterPaid.value !== '' ? filterPaid.value : undefined,
-})))
+watch([() => listParams.value.month, filterPaid], () => {
+  listParams.value = { ...listParams.value, page: 1 }
+})
+
+const payoutsQuery = computed(() => {
+  const p = listParams.value
+  const o: Record<string, unknown> = { page: p.page, per_page: p.per_page }
+  if (p.month) o.month = p.month
+  if (filterPaid.value !== '') o.paid = filterPaid.value
+  return o
+})
+
+const payoutsSummaryParams = computed(() => {
+  const p = listParams.value
+  if (!p.month && filterPaid.value === '') return NO_PAYOUT_SUMMARY_FILTERS
+  const o: Record<string, unknown> = {}
+  if (p.month) o.month = p.month
+  if (filterPaid.value !== '') o.paid = filterPaid.value
+  return o
+})
+
+const { data: payouts, loading, meta, refresh: refreshPayoutsList } = useAPI('payouts', payoutsQuery)
+const { data: payoutSummaryRaw, refresh: refreshPayoutsSummary } = useAPI('payouts/summary', payoutsSummaryParams)
 const { data: months } = useAPI('payouts/months')
 
 const monthOpts = computed(() => (months.value ?? []).map((m: any) => ({ value: m.month, label: m.month })))
 const paidOpts  = [{ value: '1', label: 'Paid' }, { value: '0', label: 'Unpaid' }]
+
+const payoutSummaryCards = computed(() => {
+  const s = payoutSummaryRaw.value as { count?: number; commission_total?: number } | null
+  if (s == null || typeof s !== 'object') return null
+  return {
+    count:             Number(s.count ?? 0),
+    commission_total: Number(s.commission_total ?? 0),
+  }
+})
+
+const summaryScopeLabel = computed(() => {
+  const filtered = !!(listParams.value.month || filterPaid.value !== '')
+  return filtered
+    ? 'Summary totals for the current filters (all matching rows, not just this page).'
+    : 'Summary totals across all payouts (no filters applied).'
+})
+
+const fmtPayoutCommission = computed(() =>
+  (payoutSummaryCards.value?.commission_total ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+)
+
+async function refresh() {
+  await Promise.all([refreshPayoutsList(), refreshPayoutsSummary()])
+}
+
+const perPageOpts = [
+  { value: 15, label: '15 per page' },
+  { value: 25, label: '25 per page' },
+  { value: 50, label: '50 per page' },
+]
+
+const perPageSelect = computed({
+  get() {
+    return listParams.value.per_page ?? 25
+  },
+  set(v: string | number) {
+    const n = Number(v)
+    listParams.value = {
+      ...listParams.value,
+      per_page: Number.isFinite(n) && n > 0 ? n : 25,
+      page: 1,
+    }
+  },
+})
+
+const rangeStart = computed(() => {
+  const m = meta.value
+  if (!m?.total) return 0
+  return (m.page - 1) * m.per_page + 1
+})
+
+const rangeEnd = computed(() => {
+  const m = meta.value
+  if (!m?.total) return 0
+  return Math.min(m.page * m.per_page, m.total)
+})
+
+function goPage(p: number) {
+  const m = meta.value
+  if (!m) return
+  const next = Math.max(1, Math.min(p, m.last_page))
+  listParams.value = { ...listParams.value, page: next }
+}
 
 const columns = [
   { key: 'ambassador', label: 'Ambassador'   },
@@ -72,7 +201,7 @@ async function doMarkPaid(row: any) {
   const ok = await confirm('Mark as Paid', `Mark ${row.ambassador_name}'s payout as paid?`)
   if (!ok) return
   await fetch(`${config.public.apiBase}/payouts/${row.id}/mark-paid`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } })
-  refresh()
+  await refresh()
 }
 
 async function doDownloadSummary(row: any) {
@@ -83,7 +212,7 @@ async function doGeneratePayslip(row: any) {
   const res = await fetch(`${config.public.apiBase}/payouts/${row.id}/payslip`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } })
   if (res.ok) {
     await downloadPdf(`${config.public.apiBase}/payouts/${row.id}/payslip`, `payslip-${row.id}.pdf`, auth.token!)
-    refresh()
+    await refresh()
   }
 }
 
@@ -91,6 +220,6 @@ async function doDelete(row: any) {
   const ok = await confirm('Delete Payout', 'Delete this payout record and all its files?')
   if (!ok) return
   await fetch(`${config.public.apiBase}/payouts/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
-  refresh()
+  await refresh()
 }
 </script>
