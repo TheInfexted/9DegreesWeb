@@ -60,6 +60,20 @@ class SalesTest extends CIUnitTestCase
         $this->assertNull(json_decode($result->getJSON(), true)['data']['table_number']);
     }
 
+    public function test_create_bgo_sale_with_table_number(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/sales', [
+                           'ambassador_id' => $this->ambassadorId,
+                           'date'          => '2025-12-01',
+                           'sale_type'     => 'BGO',
+                           'table_number'  => 'VIP-2',
+                           'gross_amount'  => 1800.00,
+                       ]);
+        $result->assertStatus(201);
+        $this->assertEquals('VIP-2', json_decode($result->getJSON(), true)['data']['table_number']);
+    }
+
     public function test_list_sales_with_filters(): void
     {
         $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])

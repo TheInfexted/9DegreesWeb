@@ -14,9 +14,16 @@
           <label class="field-label">Sale Type</label>
           <AppSelect v-model="form.sale_type" :options="[{value:'Table',label:'Table'},{value:'BGO',label:'BGO'}]" />
         </div>
-        <div v-if="form.sale_type === 'Table'" class="col-span-2">
+        <div class="col-span-2">
           <label class="field-label">Table Number</label>
-          <input v-model="form.table_number" type="text" class="field-input w-full" placeholder="e.g. T04" />
+          <input
+            v-model="form.table_number"
+            type="text"
+            class="field-input w-full"
+            placeholder="e.g. T04"
+            :required="form.sale_type === 'Table'"
+          />
+          <p v-if="form.sale_type === 'BGO'" class="mt-1 text-[11px] text-gray-400">Optional for BGO</p>
         </div>
         <div class="col-span-2">
           <label class="field-label">Gross Amount (RM)</label>
@@ -81,7 +88,7 @@ async function handleSubmit() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
       body: JSON.stringify({
         ...form.value,
-        table_number: form.value.sale_type === 'BGO' ? null : form.value.table_number,
+        table_number: form.value.table_number.trim() === '' ? null : form.value.table_number.trim(),
       }),
     })
     const json = await res.json()

@@ -35,7 +35,7 @@ class SaleService
             'team_id'       => $ambassador['team_id'],
             'date'          => $data['date'],
             'sale_type'     => $data['sale_type'],
-            'table_number'  => $data['sale_type'] === 'Table' ? ($data['table_number'] ?? null) : null,
+            'table_number'  => $this->normalizeTableNumber($data['table_number'] ?? null),
             'gross_amount'  => (float) $data['gross_amount'],
             'status'        => 'draft',
             'remarks'       => $data['remarks'] ?? null,
@@ -55,8 +55,16 @@ class SaleService
             'ambassador_id', 'date', 'sale_type', 'table_number', 'gross_amount', 'remarks',
         ]));
 
-        if (isset($allowed['sale_type']) && $allowed['sale_type'] === 'BGO') {
-            $allowed['table_number'] = null;
+        if (array_key_exists('table_number', $allowed)) {
+            $allowed['table_number'] = $this->normalizeTableNumber($allowed['table_number']);
+        }
+
+        $effectiveType  = $allowed['sale_type'] ?? $sale['sale_type'];
+        $effectiveTable = array_key_exists('table_number', $allowed)
+            ? $allowed['table_number']
+            : $this->normalizeTableNumber($sale['table_number'] ?? null);
+        if ($effectiveType === 'Table' && $effectiveTable === null) {
+            throw new \RuntimeException('table_number is required for Table sales.', 422);
         }
 
         return $this->saleRepo->update($id, $allowed);
@@ -119,8 +127,21 @@ class SaleService
         if (empty($data['gross_amount']) || (float) $data['gross_amount'] <= 0) {
             throw new \RuntimeException('gross_amount must be greater than 0.', 422);
         }
-        if ($data['sale_type'] === 'Table' && empty($data['table_number'])) {
-            throw new \RuntimeException('table_number is required for Table sales.', 422);
+        if ($data['sale_type'] === 'Table') {
+            $tn = isset($data['table_number']) ? trim((string) $data['table_number']) : '';
+            if ($tn === '') {
+                throw new \RuntimeException('table_number is required for Table sales.', 422);
+            }
         }
+    }
+
+    private function normalizeTableNumber(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $s = trim((string) $value);
+
+        return $s === '' ? null : $s;
     }
 }
