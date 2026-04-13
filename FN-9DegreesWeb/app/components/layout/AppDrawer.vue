@@ -31,20 +31,12 @@
 </template>
 
 <script setup lang="ts">
+import { allSidebarNav } from '~/config/sidebarNav'
+
 defineProps<{ open: boolean }>()
 defineEmits<{ close: [] }>()
 
-const allNav = [
-  { to: '/',            label: 'Dashboard'   },
-  { to: '/sales',       label: 'Sales'       },
-  { to: '/commissions', label: 'Commissions' },
-  { to: '/payouts',     label: 'Payouts'     },
-  { to: '/leaderboard', label: 'Leaderboard' },
-  { to: '/ambassadors', label: 'Ambassadors' },
-  { to: '/teams',       label: 'Teams'       },
-  { to: '/access',      label: 'Access & Roles' },
-  { to: '/settings',    label: 'Settings'    },
-]
+const allNav = allSidebarNav
 </script>
 
 <style scoped>

@@ -41,22 +41,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+import { mainSidebarNav, mgmtSidebarNav } from '~/config/sidebarNav'
 
 const auth = useAuthStore()
 const initials = computed(() => (auth.user?.username ?? 'U').slice(0, 2).toUpperCase())
 
-const mainNav = [
-  { to: '/',            label: 'Dashboard'  },
-  { to: '/sales',       label: 'Sales'      },
-  { to: '/commissions', label: 'Commissions'},
-  { to: '/payouts',     label: 'Payouts'    },
-  { to: '/leaderboard', label: 'Leaderboard'},
-]
-
-const mgmtNav = [
-  { to: '/ambassadors', label: 'Ambassadors'   },
-  { to: '/teams',       label: 'Teams'         },
-  { to: '/access',      label: 'Access & Roles'},
-  { to: '/settings',    label: 'Settings'      },
-]
+const mainNav = mainSidebarNav
+const mgmtNav = mgmtSidebarNav
 </script>

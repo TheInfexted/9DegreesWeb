@@ -6,9 +6,11 @@
       ? 'bg-[#00C4CC12] text-[#007a80] font-semibold'
       : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'"
   >
-    <span
-      class="w-[14px] h-[14px] rounded-[3px] shrink-0"
-      :class="isActive ? 'bg-[#00C4CC]' : 'bg-gray-200'"
+    <component
+      :is="Icon"
+      class="w-[14px] h-[14px] shrink-0"
+      :class="isActive ? 'text-[#00C4CC]' : 'text-gray-400'"
+      aria-hidden="true"
     />
     {{ label }}
   </NuxtLink>
@@ -17,8 +19,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { sidebarIconMap, type SidebarIconKey } from '~/config/sidebarNav'
 
-const props   = defineProps<{ to: string; label: string }>()
-const route   = useRoute()
+const props = defineProps<{ to: string; label: string; icon: SidebarIconKey }>()
+const route = useRoute()
 const isActive = computed(() => route.path === props.to)
+const Icon = computed(() => sidebarIconMap[props.icon])
 </script>
