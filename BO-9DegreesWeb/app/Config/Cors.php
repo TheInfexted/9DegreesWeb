@@ -36,8 +36,8 @@ class Cors extends BaseConfig
          */
         'allowedOrigins' => [
             'http://localhost:3000',
-            // Add production frontend origin here before deploying:
-            // 'https://app.9degrees.com',
+            'https://ninedsales.com',
+            'https://www.ninedsales.com',
         ],
 
         /**
