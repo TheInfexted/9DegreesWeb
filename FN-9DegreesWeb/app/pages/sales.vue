@@ -103,6 +103,7 @@
       v-model="showForm"
       :sale="editSale"
       :ambassadors="ambassadors ?? []"
+      :default-create-date="defaultCreateSaleDate"
       @saved="refresh"
     />
   </NuxtLayout>
@@ -165,6 +166,23 @@ const { data: sales, loading, meta, refresh: refreshSalesList } = useAPI('sales'
 const { data: salesSummaryRaw, refresh: refreshSalesSummary } = useAPI('sales/summary', salesSummaryParams)
 const { data: ambassadors }                    = useAPI('ambassadors', { status: 'active' })
 const { data: months }                         = useAPI('sales/months')
+const { data: latestDefaultsRaw, refresh: refreshLatestDefaults } = useAPI<Record<string, unknown>>('sales/latest-defaults')
+
+/** Normalized row from latest-defaults (handles useAPI when `data` is null). */
+const latestSaleDefaults = computed(() => {
+  const v = latestDefaultsRaw.value
+  if (!v || typeof v !== 'object') return null
+  const row = 'date' in v && typeof (v as { date?: unknown }).date === 'string' ? (v as { date: string; ambassador_id?: unknown; team_id?: unknown }) : null
+  if (row && /^\d{4}-\d{2}-\d{2}$/.test(row.date)) return row
+  const inner = (v as { data?: unknown }).data
+  if (inner && typeof inner === 'object' && typeof (inner as { date?: unknown }).date === 'string') {
+    const d = (inner as { date: string }).date
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return inner as { date: string; ambassador_id?: unknown; team_id?: unknown }
+  }
+  return null
+})
+
+const defaultCreateSaleDate = computed(() => latestSaleDefaults.value?.date ?? null)
 
 const showForm = ref(false)
 const editSale = ref<any>(null)
@@ -197,7 +215,7 @@ const fmtSummaryGross = computed(() =>
 )
 
 async function refresh() {
-  await Promise.all([refreshSalesList(), refreshSalesSummary()])
+  await Promise.all([refreshSalesList(), refreshSalesSummary(), refreshLatestDefaults()])
 }
 
 const perPageOpts = [
@@ -251,7 +269,11 @@ const columns = [
 
 const { confirm } = useConfirm()
 
-function openCreate() { editSale.value = null; showForm.value = true }
+async function openCreate() {
+  editSale.value = null
+  await refreshLatestDefaults()
+  showForm.value = true
+}
 function openEdit(row: any) { editSale.value = row; showForm.value = true }
 
 async function doConfirm(row: any) {
