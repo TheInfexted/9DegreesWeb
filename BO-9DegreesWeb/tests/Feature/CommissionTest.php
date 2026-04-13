@@ -165,4 +165,51 @@ class CommissionTest extends CIUnitTestCase
         $this->assertEquals('void', $data['status']);
         $this->assertNull($data['confirmed_commission_rate']);
     }
+
+    public function test_commissions_index_empty_ok(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/commissions?page=1&per_page=25');
+        $result->assertStatus(200);
+        $json = json_decode($result->getJSON(), true);
+        $this->assertIsArray($json['data']);
+        $this->assertSame(0, (int) ($json['meta']['total'] ?? 0));
+    }
+
+    /** Commission list and summary must agree when filtering by month (regression: count query vs joined select). */
+    public function test_commission_list_matches_summary_for_month(): void
+    {
+        $create = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/sales', [
+                           'ambassador_id' => $this->ambassadorId,
+                           'date'          => '2025-12-15',
+                           'sale_type'     => 'Table',
+                           'table_number'  => 'T-LIST',
+                           'gross_amount'  => 2500,
+                       ]);
+        $saleId = json_decode($create->getJSON(), true)['data']['id'];
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post("/api/v1/sales/{$saleId}/confirm");
+
+        $summary = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                        ->get('/api/v1/commissions/summary?month=2025-12');
+        $summary->assertStatus(200);
+        $sum = json_decode($summary->getJSON(), true)['data'];
+        $this->assertGreaterThan(0, (float) ($sum['total'] ?? 0));
+
+        $list = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                     ->get('/api/v1/commissions?month=2025-12&page=1&per_page=25');
+        $list->assertStatus(200);
+        $json = json_decode($list->getJSON(), true);
+        $this->assertGreaterThanOrEqual(1, (int) ($json['meta']['total'] ?? 0));
+        $this->assertNotEmpty($json['data']);
+
+        $amb = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                    ->get('/api/v1/commissions/ambassadors-for-month?month=2025-12');
+        $amb->assertStatus(200);
+        $rows = json_decode($amb->getJSON(), true)['data'];
+        $this->assertIsArray($rows);
+        $ids = array_column($rows, 'id');
+        $this->assertContains($this->ambassadorId, $ids);
+    }
 }

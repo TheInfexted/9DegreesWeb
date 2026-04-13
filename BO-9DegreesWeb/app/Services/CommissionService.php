@@ -63,4 +63,12 @@ class CommissionService
     {
         return $this->repo->getAvailableMonths();
     }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function listAmbassadorsWithSalesInMonth(string $yearMonth): array
+    {
+        return $this->repo->findAmbassadorsWithConfirmedSalesInMonth($yearMonth);
+    }
 }

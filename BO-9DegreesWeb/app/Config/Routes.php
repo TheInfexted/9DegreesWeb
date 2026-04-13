@@ -56,9 +56,10 @@ $routes->group('api/v1', function ($routes) {
         $routes->delete('sales/(:num)',          'Api\SaleController::delete/$1');
 
         // Commissions
-        $routes->get('commissions/months',      'Api\CommissionController::months');
-        $routes->get('commissions/summary',     'Api\CommissionController::summary');
-        $routes->get('commissions',             'Api\CommissionController::index');
+        $routes->get('commissions/months',              'Api\CommissionController::months');
+        $routes->get('commissions/summary',             'Api\CommissionController::summary');
+        $routes->get('commissions/ambassadors-for-month', 'Api\CommissionController::ambassadorsForMonth');
+        $routes->get('commissions',                     'Api\CommissionController::index');
 
         // Payouts
         $routes->get('payouts/months',                      'Api\PayoutController::months');

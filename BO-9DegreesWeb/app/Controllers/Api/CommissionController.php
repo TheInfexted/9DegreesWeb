@@ -43,4 +43,15 @@ class CommissionController extends BaseApiController
     {
         return $this->ok($this->commissionService->getAvailableMonths());
     }
+
+    /** Active ambassadors who have confirmed sales in the given month (YYYY-MM). */
+    public function ambassadorsForMonth(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        $month = (string) ($this->request->getGet('month') ?? '');
+        if ($month === '' || ! preg_match('/^\d{4}-\d{2}$/', $month)) {
+            return $this->badRequest('Query parameter month (YYYY-MM) is required.');
+        }
+
+        return $this->ok($this->commissionService->listAmbassadorsWithSalesInMonth($month));
+    }
 }

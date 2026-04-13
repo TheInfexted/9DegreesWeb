@@ -10,7 +10,7 @@
       </div>
       <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-[#F0F0F0] pt-3">
         <p class="text-[12px] text-gray-500">
-          Confirm all applies to <span class="font-medium text-ink">draft</span> rows matching ambassador, month, and sale type (ignores status filter).
+          Confirm all applies to every <span class="font-medium text-ink">draft</span> row matching ambassador and month.
         </p>
         <button
           type="button"
@@ -287,7 +287,7 @@ async function doConfirm(row: any) {
 async function doConfirmAll() {
   const ok = await confirm(
     'Confirm all draft sales',
-    'This will confirm every draft sale that matches the current ambassador, month, and sale type filters. The status filter does not apply. Continue?',
+    'This will confirm every draft sale that matches the current ambassador and month filters (all sale types: Table and BGO). Status and sale type filters on the list do not apply. Continue?',
   )
   if (!ok) return
 
@@ -297,7 +297,6 @@ async function doConfirmAll() {
   const body: Record<string, unknown> = {}
   if (p.ambassador_id) body.ambassador_id = p.ambassador_id
   if (p.month) body.month = p.month
-  if (p.sale_type) body.sale_type = p.sale_type
 
   confirmAllLoading.value = true
   try {

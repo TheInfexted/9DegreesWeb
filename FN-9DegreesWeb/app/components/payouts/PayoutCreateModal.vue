@@ -7,21 +7,26 @@
       </div>
       <div v-if="selectedMonth">
         <label class="field-label">Ambassadors ({{ selected.size }} selected)</label>
+        <p class="text-[11px] text-gray-500 mb-2">Only ambassadors with confirmed sales in this month. Johnny and Unassigned Sales are excluded.</p>
         <div class="border border-[#E8E8EC] rounded-xl overflow-hidden max-h-64 overflow-y-auto">
-          <label
-            v-for="amb in eligibleAmbassadors"
-            :key="amb.id"
-            class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-[#F0F0F0] last:border-b-0"
-          >
-            <input type="checkbox" :value="amb.id" v-model="selectedIds" class="accent-[#00C4CC]" />
-            <div class="flex-1">
-              <div class="text-[13px] font-medium text-ink">{{ amb.name }}</div>
-              <div class="text-[11px] text-gray-400">{{ amb.team_name ?? 'No team' }}</div>
+          <div v-if="loadingMonth" class="px-4 py-6 text-center text-[13px] text-gray-400">Loading…</div>
+          <template v-else>
+            <label
+              v-for="amb in eligibleAmbassadors"
+              :key="amb.id"
+              class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-[#F0F0F0] last:border-b-0"
+            >
+              <input type="checkbox" :value="amb.id" v-model="selectedIds" class="accent-[#00C4CC]" />
+              <div class="flex-1">
+                <div class="text-[13px] font-medium text-ink">{{ amb.name }}</div>
+                <div class="text-[11px] text-gray-400">{{ amb.team_name ?? 'No team' }}</div>
+              </div>
+            </label>
+            <div v-if="!eligibleAmbassadors.length" class="px-4 py-6 text-center text-[13px] text-gray-400">
+              <template v-if="!withSalesAmbassadors.length">No confirmed sales for this month — nothing to pay out yet.</template>
+              <template v-else>Everyone with sales this month already has a payout record.</template>
             </div>
-          </label>
-          <div v-if="!eligibleAmbassadors.length" class="px-4 py-6 text-center text-[13px] text-gray-400">
-            No ambassadors with unpaid commissions this month.
-          </div>
+          </template>
         </div>
       </div>
     </div>
@@ -47,12 +52,14 @@ const selectedMonth = ref('')
 const selectedIds   = ref<number[]>([])
 const selected      = computed(() => new Set(selectedIds.value))
 const loading       = ref(false)
+const loadingMonth  = ref(false)
 const config        = useRuntimeConfig()
 const auth          = useAuthStore()
 
-const { data: months }      = useAPI('commissions/months')
-const { data: ambassadors } = useAPI('ambassadors', { status: 'active' })
-const { data: payouts }     = useAPI('payouts', computed(() => ({ month: selectedMonth.value })))
+const withSalesAmbassadors = ref<Array<{ id: number; name: string; team_name?: string | null }>>([])
+const payoutsForMonth      = ref<Array<{ ambassador_id: number }>>([])
+
+const { data: months } = useAPI('commissions/months')
 
 const monthOpts = computed(() =>
   (months.value ?? []).map((m: any) => ({
@@ -61,15 +68,60 @@ const monthOpts = computed(() =>
   }))
 )
 
+async function loadMonthContext(month: string) {
+  if (!month) {
+    withSalesAmbassadors.value = []
+    payoutsForMonth.value      = []
+    return
+  }
+  loadingMonth.value = true
+  try {
+    const [ambRes, payRes] = await Promise.all([
+      fetch(`${config.public.apiBase}/commissions/ambassadors-for-month?${new URLSearchParams({ month }).toString()}`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      }),
+      fetch(`${config.public.apiBase}/payouts?${new URLSearchParams({ month }).toString()}`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      }),
+    ])
+    const ambJson = await ambRes.json()
+    const payJson = await payRes.json()
+    if (!ambRes.ok) throw new Error(ambJson.message ?? 'Failed to load ambassadors')
+    if (!payRes.ok) throw new Error(payJson.message ?? 'Failed to load payouts')
+    withSalesAmbassadors.value = Array.isArray(ambJson.data) ? ambJson.data : []
+    payoutsForMonth.value      = Array.isArray(payJson.data) ? payJson.data : []
+  } catch {
+    withSalesAmbassadors.value = []
+    payoutsForMonth.value      = []
+  } finally {
+    loadingMonth.value = false
+  }
+}
+
 const eligibleAmbassadors = computed(() => {
   if (!selectedMonth.value) return []
-  const existingIds = new Set((payouts.value ?? []).map((p: any) => p.ambassador_id))
-  return (ambassadors.value ?? []).filter((a: any) =>
-    a.name !== 'Johnny' && a.name !== 'Unassigned Sales' && !existingIds.has(a.id)
+  const existingIds = new Set(payoutsForMonth.value.map((p) => p.ambassador_id))
+  return withSalesAmbassadors.value.filter(
+    (a) => a.name !== 'Johnny' && a.name !== 'Unassigned Sales' && !existingIds.has(a.id),
   )
 })
 
-watch(selectedMonth, () => { selectedIds.value = [] })
+watch(selectedMonth, (m) => {
+  selectedIds.value = []
+  loadMonthContext(m)
+})
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (!open) {
+      selectedMonth.value = ''
+      selectedIds.value   = []
+      withSalesAmbassadors.value = []
+      payoutsForMonth.value      = []
+    }
+  },
+)
 
 async function handleCreate() {
   if (!selected.value.size) return

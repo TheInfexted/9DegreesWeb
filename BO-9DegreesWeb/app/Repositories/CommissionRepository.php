@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\AmbassadorModel;
 use App\Models\SaleModel;
+use CodeIgniter\Database\BaseBuilder;
 
 class CommissionRepository
 {
@@ -79,10 +80,13 @@ class CommissionRepository
 
     public function countReport(array $filters): int
     {
-        $builder = $this->makeReportBuilder();
-        $this->applyReportFilters($builder, $filters);
+        // Count on the sales table only. Use db->table() — not $saleModel->builder() — so countAllResults()
+        // does not corrupt the Model's shared builder used by findReportPaginated() in the same request.
+        $b = $this->saleModel->db->table($this->saleModel->getTable());
+        $b->where('status', 'confirmed');
+        $this->applyReportFiltersToSalesBuilder($b, $filters);
 
-        return $builder->countAllResults(false);
+        return (int) $b->countAllResults();
     }
 
     /**
@@ -96,8 +100,10 @@ class CommissionRepository
 
         $builder = $this->makeReportBuilder();
         $this->applyReportFilters($builder, $filters);
+        // Do not use findAll() here: BaseModel::doFindAll() reapplies limit(0,0) and drops the chained limit.
+        $builder->limit($perPage, $offset);
 
-        return $builder->limit($perPage, $offset)->findAll();
+        return $builder->get()->getResultArray();
     }
 
     /**
@@ -110,7 +116,7 @@ class CommissionRepository
         $builder = $this->makeReportBuilder();
         $this->applyReportFilters($builder, $filters);
 
-        return $builder->findAll();
+        return $builder->get()->getResultArray();
     }
 
     /**
@@ -118,23 +124,17 @@ class CommissionRepository
      */
     public function getReportSummary(array $filters): array
     {
+        // Single-table aggregate: unqualified columns match the query builder's FROM table
+        // (works with DBPrefix / SQLite tests; joins were unused for filters).
         $b = $this->saleModel->builder();
         $b->select(
-            'COALESCE(SUM(ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2)), 0) AS total, '
-            . 'COALESCE(SUM(CASE WHEN sales.sale_type = \'Table\' THEN ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS table_total, '
-            . 'COALESCE(SUM(CASE WHEN sales.sale_type = \'BGO\' THEN ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS bgo_total',
+            'COALESCE(SUM(ROUND(gross_amount * confirmed_commission_rate / 100, 2)), 0) AS total, '
+            . 'COALESCE(SUM(CASE WHEN sale_type = \'Table\' THEN ROUND(gross_amount * confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS table_total, '
+            . 'COALESCE(SUM(CASE WHEN sale_type = \'BGO\' THEN ROUND(gross_amount * confirmed_commission_rate / 100, 2) ELSE 0 END), 0) AS bgo_total',
             false
         )
-            ->join('ambassadors', 'ambassadors.id = sales.ambassador_id', 'left')
-            ->join('roles', 'roles.id = ambassadors.role_id', 'left')
-            ->where('sales.status', 'confirmed');
-
-        if (!empty($filters['ambassador_id'])) {
-            $b->where('sales.ambassador_id', $filters['ambassador_id']);
-        }
-        if (!empty($filters['month'])) {
-            $b->where("SUBSTR(sales.date, 1, 7)", $filters['month']);
-        }
+            ->where('status', 'confirmed');
+        $this->applyReportFiltersToSalesBuilder($b, $filters);
 
         $row = $b->get()->getRowArray();
 
@@ -143,6 +143,37 @@ class CommissionRepository
             'table' => (float) ($row['table_total'] ?? 0),
             'bgo'   => (float) ($row['bgo_total'] ?? 0),
         ];
+    }
+
+    /**
+     * Active ambassadors with at least one confirmed sale in the given calendar month (YYYY-MM).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function findAmbassadorsWithConfirmedSalesInMonth(string $yearMonth): array
+    {
+        $rows = $this->saleModel->builder()
+            ->select('ambassador_id')
+            ->where('status', 'confirmed')
+            ->where("SUBSTR(date, 1, 7)", $yearMonth)
+            ->groupBy('ambassador_id')
+            ->get()->getResultArray();
+        $ids = array_values(array_unique(array_map(static fn (array $r): int => (int) $r['ambassador_id'], $rows)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $db = $this->ambassadorModel->db;
+        $tA = $db->prefixTable('ambassadors');
+        $tT = $db->prefixTable('teams');
+
+        return $this->ambassadorModel
+            ->select("{$tA}.id, {$tA}.name, {$tT}.name as team_name", false)
+            ->join('teams', "{$tT}.id = {$tA}.team_id", 'left')
+            ->whereIn("{$tA}.id", $ids)
+            ->where("{$tA}.status", 'active')
+            ->orderBy("{$tA}.name", 'ASC')
+            ->findAll();
     }
 
     /**
@@ -171,18 +202,29 @@ class CommissionRepository
             ->findAll();
     }
 
+    /** Physical sales table name including DBPrefix (required for raw SELECT / WHERE fragments). */
+    private function prefixedSalesTable(): string
+    {
+        return $this->saleModel->db->prefixTable($this->saleModel->getTable());
+    }
+
     private function makeReportBuilder(): SaleModel
     {
+        $db = $this->saleModel->db;
+        $tS = $this->prefixedSalesTable();
+        $tA = $db->prefixTable('ambassadors');
+        $tR = $db->prefixTable('roles');
+
         return $this->saleModel
             ->select(
-                'sales.*, ambassadors.name as ambassador_name, roles.name as role_name, '
-                . 'ROUND(sales.gross_amount * sales.confirmed_commission_rate / 100, 2) as commission_amount',
+                "{$tS}.*, {$tA}.name as ambassador_name, {$tR}.name as role_name, "
+                . "ROUND({$tS}.gross_amount * {$tS}.confirmed_commission_rate / 100, 2) as commission_amount",
                 false
             )
-            ->join('ambassadors', 'ambassadors.id = sales.ambassador_id', 'left')
-            ->join('roles', 'roles.id = ambassadors.role_id', 'left')
-            ->where('sales.status', 'confirmed')
-            ->orderBy('sales.date', 'DESC');
+            ->join('ambassadors', "{$tA}.id = {$tS}.ambassador_id", 'left')
+            ->join('roles', "{$tR}.id = {$tA}.role_id", 'left')
+            ->where("{$tS}.status", 'confirmed')
+            ->orderBy("{$tS}.date", 'DESC');
     }
 
     /**
@@ -190,11 +232,25 @@ class CommissionRepository
      */
     private function applyReportFilters(SaleModel $builder, array $filters): void
     {
+        $t = $this->prefixedSalesTable();
         if (!empty($filters['ambassador_id'])) {
-            $builder->where('sales.ambassador_id', $filters['ambassador_id']);
+            $builder->where("{$t}.ambassador_id", $filters['ambassador_id']);
         }
         if (!empty($filters['month'])) {
-            $builder->where("SUBSTR(sales.date, 1, 7)", $filters['month']);
+            $builder->where("SUBSTR({$t}.date, 1, 7)", $filters['month']);
+        }
+    }
+
+    /**
+     * @param array{ambassador_id?: int|string, month?: string} $filters
+     */
+    private function applyReportFiltersToSalesBuilder(BaseBuilder $b, array $filters): void
+    {
+        if (!empty($filters['ambassador_id'])) {
+            $b->where('ambassador_id', $filters['ambassador_id']);
+        }
+        if (!empty($filters['month'])) {
+            $b->where("SUBSTR(date, 1, 7)", $filters['month']);
         }
     }
 
