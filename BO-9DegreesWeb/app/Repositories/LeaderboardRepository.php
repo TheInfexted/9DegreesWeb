@@ -43,7 +43,7 @@ class LeaderboardRepository
         }
 
         usort($aggregated, fn($a, $b) =>
-            $b['total_amount'] <=> $a['total_amount'] ?: $b['sale_count'] <=> $a['sale_count']
+            $b['total_amount'] <=> $a['total_amount'] ?: $a['sale_count'] <=> $b['sale_count']
         );
 
         return array_values($aggregated);
