@@ -159,4 +159,12 @@ class SalesTest extends CIUnitTestCase
         $result->assertStatus(404);
         $this->assertStringContainsString('Ambassador not found', json_decode($result->getJSON(), true)['message']);
     }
+
+    public function test_sales_list_rejects_malformed_month(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/sales?month=2025-12-15');
+        $result->assertStatus(422);
+        $this->assertStringContainsString('YYYY-MM', json_decode($result->getJSON(), true)['message']);
+    }
 }

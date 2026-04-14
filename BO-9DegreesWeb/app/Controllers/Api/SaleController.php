@@ -18,34 +18,42 @@ class SaleController extends BaseApiController
 
     public function summary(): \CodeIgniter\HTTP\ResponseInterface
     {
-        $filters = array_filter([
-            'status'        => $this->request->getGet('status'),
-            'ambassador_id' => $this->request->getGet('ambassador_id'),
-            'team_id'       => $this->request->getGet('team_id'),
-            'month'         => $this->request->getGet('month'),
-            'sale_type'     => $this->request->getGet('sale_type'),
-        ]);
+        try {
+            $filters = array_filter([
+                'status'        => $this->request->getGet('status'),
+                'ambassador_id' => $this->request->getGet('ambassador_id'),
+                'team_id'       => $this->request->getGet('team_id'),
+                'month'         => $this->validatedMonth($this->request->getGet('month')),
+                'sale_type'     => $this->request->getGet('sale_type'),
+            ]);
 
-        return $this->ok($this->saleService->getSummary($filters));
+            return $this->ok($this->saleService->getSummary($filters));
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e));
+        }
     }
 
     public function index(): \CodeIgniter\HTTP\ResponseInterface
     {
-        $filters = array_filter([
-            'status'        => $this->request->getGet('status'),
-            'ambassador_id' => $this->request->getGet('ambassador_id'),
-            'team_id'       => $this->request->getGet('team_id'),
-            'month'         => $this->request->getGet('month'),
-            'sale_type'     => $this->request->getGet('sale_type'),
-        ]);
-        $page    = max(1, (int) ($this->request->getGet('page') ?? 1));
-        $perPage = max(1, min(100, (int) ($this->request->getGet('per_page') ?? 25)));
-        $result  = $this->saleService->listPaginated($filters, $page, $perPage);
+        try {
+            $filters = array_filter([
+                'status'        => $this->request->getGet('status'),
+                'ambassador_id' => $this->request->getGet('ambassador_id'),
+                'team_id'       => $this->request->getGet('team_id'),
+                'month'         => $this->validatedMonth($this->request->getGet('month')),
+                'sale_type'     => $this->request->getGet('sale_type'),
+            ]);
+            $page    = max(1, (int) ($this->request->getGet('page') ?? 1));
+            $perPage = max(1, min(100, (int) ($this->request->getGet('per_page') ?? 25)));
+            $result  = $this->saleService->listPaginated($filters, $page, $perPage);
 
-        return $this->respond([
-            'data' => $result['items'],
-            'meta' => $result['meta'],
-        ], 200);
+            return $this->respond([
+                'data' => $result['items'],
+                'meta' => $result['meta'],
+            ], 200);
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e));
+        }
     }
 
     public function confirmDrafts(): \CodeIgniter\HTTP\ResponseInterface
@@ -60,7 +68,7 @@ class SaleController extends BaseApiController
                 $filters['team_id'] = (int) $body['team_id'];
             }
             if (!empty($body['month'])) {
-                $filters['month'] = (string) $body['month'];
+                $filters['month'] = $this->validatedMonth((string) $body['month']);
             }
             if (!empty($body['sale_type']) && in_array($body['sale_type'], ['Table', 'BGO'], true)) {
                 $filters['sale_type'] = $body['sale_type'];

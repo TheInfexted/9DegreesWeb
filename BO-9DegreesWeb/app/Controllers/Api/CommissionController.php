@@ -15,28 +15,36 @@ class CommissionController extends BaseApiController
 
     public function index(): \CodeIgniter\HTTP\ResponseInterface
     {
-        $filters = array_filter([
-            'ambassador_id' => $this->request->getGet('ambassador_id'),
-            'month'         => $this->request->getGet('month'),
-        ]);
-        $page    = max(1, (int) ($this->request->getGet('page') ?? 1));
-        $perPage = max(1, min(100, (int) ($this->request->getGet('per_page') ?? 25)));
-        $result  = $this->commissionService->listReportPaginated($filters, $page, $perPage);
+        try {
+            $filters = array_filter([
+                'ambassador_id' => $this->request->getGet('ambassador_id'),
+                'month'         => $this->validatedMonth($this->request->getGet('month')),
+            ]);
+            $page    = max(1, (int) ($this->request->getGet('page') ?? 1));
+            $perPage = max(1, min(100, (int) ($this->request->getGet('per_page') ?? 25)));
+            $result  = $this->commissionService->listReportPaginated($filters, $page, $perPage);
 
-        return $this->respond([
-            'data' => $result['items'],
-            'meta' => $result['meta'],
-        ], 200);
+            return $this->respond([
+                'data' => $result['items'],
+                'meta' => $result['meta'],
+            ], 200);
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e));
+        }
     }
 
     public function summary(): \CodeIgniter\HTTP\ResponseInterface
     {
-        $filters = array_filter([
-            'ambassador_id' => $this->request->getGet('ambassador_id'),
-            'month'         => $this->request->getGet('month'),
-        ]);
+        try {
+            $filters = array_filter([
+                'ambassador_id' => $this->request->getGet('ambassador_id'),
+                'month'         => $this->validatedMonth($this->request->getGet('month')),
+            ]);
 
-        return $this->ok($this->commissionService->getReportSummary($filters));
+            return $this->ok($this->commissionService->getReportSummary($filters));
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e));
+        }
     }
 
     public function months(): \CodeIgniter\HTTP\ResponseInterface

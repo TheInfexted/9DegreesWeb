@@ -43,6 +43,20 @@ abstract class BaseApiController extends ResourceController
         return ($code >= 400 && $code <= 599) ? $code : $fallback;
     }
 
+    /**
+     * Validate that a query parameter is either empty or a YYYY-MM string.
+     * Throws RuntimeException(422) on invalid format.
+     */
+    protected function validatedMonth(mixed $raw): ?string
+    {
+        if ($raw === null || $raw === '') return null;
+        $str = (string) $raw;
+        if (!preg_match('/^\d{4}-\d{2}$/', $str)) {
+            throw new \RuntimeException('month must be in YYYY-MM format.', 422);
+        }
+        return $str;
+    }
+
     protected function currentUser(): object
     {
         return $this->request->user;
