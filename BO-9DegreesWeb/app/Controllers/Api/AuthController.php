@@ -4,9 +4,8 @@ namespace App\Controllers\Api;
 
 use App\Services\AuthService;
 use CodeIgniter\HTTP\ResponseInterface;
-use CodeIgniter\RESTful\ResourceController;
 
-class AuthController extends ResourceController
+class AuthController extends BaseApiController
 {
     public function __construct(private AuthService $authService = new AuthService()) {}
 
