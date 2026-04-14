@@ -231,8 +231,6 @@ class CommissionTest extends CIUnitTestCase
         $summary->assertStatus(200);
         $sum = json_decode($summary->getJSON(), true)['data'];
         $this->assertGreaterThan(0, (float) ($sum['total'] ?? 0));
-        $this->assertGreaterThan(0, (float) ($sum['owner_total'] ?? 0));
-        $this->assertGreaterThan(0, (float) ($sum['owner_table'] ?? 0));
 
         $list = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
                      ->get('/api/v1/commissions?month=2025-12&page=1&per_page=25');

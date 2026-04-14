@@ -163,12 +163,10 @@ class CommissionRepository
     }
 
     /**
-     * @return array{total: float, table: float, bgo: float, owner_total: float, owner_table: float, owner_bgo: float}
+     * @return array{total: float, table: float, bgo: float}
      */
     public function getReportSummary(array $filters): array
     {
-        // Single-table aggregate: unqualified columns match the query builder's FROM table
-        // (works with DBPrefix / SQLite tests; joins were unused for filters).
         $johnnyScopeId = $this->johnnyReportFilterAmbassadorId($filters);
         $pool          = (float) config('Commission')->tableCommissionPoolPercent;
         $lineAmb       = 'ROUND(gross_amount * confirmed_commission_rate / 100, 2)';
@@ -179,22 +177,17 @@ class CommissionRepository
                 . 'THEN ROUND(gross_amount * (CASE WHEN ' . $pool . ' - confirmed_commission_rate > 0 THEN '
                 . $pool . ' - confirmed_commission_rate ELSE 0 END) / 100, 2) '
                 . 'ELSE ROUND(gross_amount * COALESCE(confirmed_owner_commission_rate, 0) / 100, 2) END';
+            $effectiveLine = 'CASE WHEN ambassador_id != ' . (int) $johnnyScopeId
+                . ' THEN ' . $lineOwner . ' ELSE ' . $lineAmb . ' END';
         } else {
-            $lineOwner = 'ROUND(gross_amount * COALESCE(confirmed_owner_commission_rate, 0) / 100, 2)';
+            $effectiveLine = $lineAmb;
         }
-        $effectiveLine = $johnnyScopeId !== null
-            ? 'CASE WHEN ambassador_id != ' . (int) $johnnyScopeId
-                . ' THEN ' . $lineOwner . ' ELSE ' . $lineAmb . ' END'
-            : $lineAmb;
 
         $b = $this->saleModel->builder();
         $b->select(
             'COALESCE(SUM(' . $effectiveLine . '), 0) AS total, '
             . 'COALESCE(SUM(CASE WHEN sale_type = \'Table\' THEN (' . $effectiveLine . ') ELSE 0 END), 0) AS table_total, '
-            . 'COALESCE(SUM(CASE WHEN sale_type = \'BGO\' THEN (' . $effectiveLine . ') ELSE 0 END), 0) AS bgo_total, '
-            . 'COALESCE(SUM(' . $lineOwner . '), 0) AS owner_total, '
-            . 'COALESCE(SUM(CASE WHEN sale_type = \'Table\' THEN ' . $lineOwner . ' ELSE 0 END), 0) AS owner_table, '
-            . 'COALESCE(SUM(CASE WHEN sale_type = \'BGO\' THEN ' . $lineOwner . ' ELSE 0 END), 0) AS owner_bgo',
+            . 'COALESCE(SUM(CASE WHEN sale_type = \'BGO\' THEN (' . $effectiveLine . ') ELSE 0 END), 0) AS bgo_total',
             false
         )
             ->where('status', 'confirmed');
@@ -203,12 +196,9 @@ class CommissionRepository
         $row = $b->get()->getRowArray();
 
         return [
-            'total'       => (float) ($row['total'] ?? 0),
-            'table'       => (float) ($row['table_total'] ?? 0),
-            'bgo'         => (float) ($row['bgo_total'] ?? 0),
-            'owner_total' => (float) ($row['owner_total'] ?? 0),
-            'owner_table' => (float) ($row['owner_table'] ?? 0),
-            'owner_bgo'   => (float) ($row['owner_bgo'] ?? 0),
+            'total' => (float) ($row['total'] ?? 0),
+            'table' => (float) ($row['table_total'] ?? 0),
+            'bgo'   => (float) ($row['bgo_total'] ?? 0),
         ];
     }
 
