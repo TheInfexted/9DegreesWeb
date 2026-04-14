@@ -108,6 +108,11 @@ class SaleService
             'ambassador_id', 'date', 'sale_type', 'table_number', 'gross_amount', 'remarks',
         ]));
 
+        if (array_key_exists('ambassador_id', $allowed)) {
+            $ambassador = $this->ambassadorRepo->findById((int) $allowed['ambassador_id']);
+            if (!$ambassador) throw new \RuntimeException('Ambassador not found.', 404);
+        }
+
         if (array_key_exists('table_number', $allowed)) {
             $allowed['table_number'] = $this->normalizeTableNumber($allowed['table_number']);
         }

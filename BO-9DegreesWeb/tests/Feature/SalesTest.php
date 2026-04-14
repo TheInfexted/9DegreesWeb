@@ -138,4 +138,25 @@ class SalesTest extends CIUnitTestCase
                        ->delete("/api/v1/sales/{$id}");
         $result->assertStatus(204);
     }
+
+    public function test_update_sale_with_nonexistent_ambassador_returns_404(): void
+    {
+        // Create a draft sale first
+        $create = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/sales', [
+                           'ambassador_id' => $this->ambassadorId,
+                           'date'          => '2025-12-10',
+                           'sale_type'     => 'Table',
+                           'table_number'  => 'T-UPD',
+                           'gross_amount'  => 1000,
+                       ]);
+        $saleId = json_decode($create->getJSON(), true)['data']['id'];
+
+        // Try to reassign to ambassador ID 999999 (does not exist)
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->withBodyFormat('json')
+                       ->put("/api/v1/sales/{$saleId}", ['ambassador_id' => 999999]);
+        $result->assertStatus(404);
+        $this->assertStringContainsString('Ambassador not found', json_decode($result->getJSON(), true)['message']);
+    }
 }
