@@ -55,7 +55,7 @@ class CommissionService
     }
 
     /**
-     * @return array{total: float, table: float, bgo: float, owner_total: float, owner_table: float, owner_bgo: float}
+     * @return array{total: float, table: float, bgo: float}
      */
     public function getReportSummary(array $filters): array
     {
