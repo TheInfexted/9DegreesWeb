@@ -12,6 +12,10 @@ class LeaderboardRepository
     {
         if (empty($yearMonths)) return [];
 
+        $db      = $this->saleModel->db;
+        $escaped = array_map(static fn($m) => $db->escape($m), $yearMonths);
+        $inList  = implode(',', $escaped);
+
         $rows = $this->saleModel
             ->select('sales.ambassador_id, sales.gross_amount, ambassadors.name as ambassador_name,
                       roles.name as role_name, teams.name as team_name')
@@ -21,7 +25,7 @@ class LeaderboardRepository
             ->where('sales.status', 'confirmed')
             ->where('roles.name !=', 'External Partner')
             ->whereNotIn('ambassadors.name', ['Johnny', 'Unassigned Sales'])
-            ->where("SUBSTR(date, 1, 7) IN ('" . implode("','", $yearMonths) . "')", null, false)
+            ->where("SUBSTR(date, 1, 7) IN ({$inList})", null, false)
             ->get()->getResultArray();
 
         // Aggregate in PHP to avoid DB-level GROUP BY compatibility issues

@@ -17,6 +17,12 @@ class LeaderboardController extends BaseApiController
     {
         $months = $this->request->getGet('months') ?? [];
         if (is_string($months)) $months = [$months];
+        if (!is_array($months)) $months = [];
+        $months = array_values(array_filter(
+            $months,
+            static fn($m): bool => is_string($m) && preg_match('/^\d{4}-\d{2}$/', $m) === 1
+        ));
+
         return $this->ok($this->leaderboardService->getRankings($months));
     }
 
