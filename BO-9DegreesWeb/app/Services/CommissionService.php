@@ -27,6 +27,23 @@ class CommissionService
         return $this->repo->resolveFrozenCommissionRates($saleId);
     }
 
+    /**
+     * Snapshot of ambassador base % at confirm time (Table KPI sync uses this; profile edits do not rewrite it).
+     */
+    public function resolveFrozenCommissionBaseRate(int $saleId): float
+    {
+        return $this->repo->resolveFrozenCommissionBaseRate($saleId);
+    }
+
+    /**
+     * Recompute frozen rates for all confirmed Table sales of an ambassador in a calendar month
+     * when KPI is met month-wide (retroactive bonus) or no longer met (strip bonus).
+     */
+    public function syncFrozenCommissionRatesForAmbassadorMonth(int $ambassadorId, string $yearMonth): void
+    {
+        $this->repo->syncFrozenCommissionRatesForAmbassadorMonth($ambassadorId, $yearMonth);
+    }
+
     public function getReport(array $filters = []): array
     {
         return $this->repo->getReport($filters);

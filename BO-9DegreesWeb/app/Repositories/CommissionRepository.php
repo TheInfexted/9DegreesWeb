@@ -41,7 +41,9 @@ class CommissionRepository
      * 2. Table + "Unassigned Sales": ambassador slice 0% (full Table pool goes to owner → Johnny at confirm).
      * 3. Table (otherwise): base rate = ambassador.custom_commission_rate
      * 4. If use_kpi_bonus=1 AND kpi IS NOT NULL AND commission_increase IS NOT NULL:
-     *    - (confirmed monthly Table total + this sale amount) >= kpi → rate += commission_increase
+     *    - (confirmed monthly Table total + this sale amount) >= kpi → rate += commission_increase for this confirm.
+     *    - After confirm, syncFrozenCommissionRatesForAmbassadorMonth() updates every confirmed Table sale in that
+     *      month so the bonus applies to the whole month once KPI is met (and is stripped if KPI is no longer met).
      * 5. "Unassigned Sales" Table KPI path is skipped (handled by rule 2). BGO Unassigned is still 10%.
      */
     public function computeEffectiveRate(int $saleId): float
@@ -109,6 +111,107 @@ class CommissionRepository
             'ambassador_rate' => $ambassadorRate,
             'owner_rate'      => round($pool - $ambassadorRate, 2),
         ];
+    }
+
+    /**
+     * Snapshot of the ambassador base % at confirm time (before KPI bump). Used to keep prior-month sales
+     * correct when custom_commission_rate is edited later.
+     *
+     * @return float BGO → 10; Unassigned Table → 0; Table otherwise → custom_commission_rate
+     */
+    public function resolveFrozenCommissionBaseRate(int $saleId): float
+    {
+        $sale = $this->saleModel->find($saleId);
+        if (!$sale) {
+            throw new \RuntimeException("Sale {$saleId} not found.", 404);
+        }
+
+        if ($sale['sale_type'] === 'BGO') {
+            return 10.00;
+        }
+
+        if ($sale['sale_type'] === 'Table' && $this->isUnassignedSales((int) $sale['ambassador_id'])) {
+            return 0.00;
+        }
+
+        $amb = $this->ambassadorModel->find((int) $sale['ambassador_id']);
+        if (!$amb) {
+            throw new \RuntimeException('Ambassador not found.', 404);
+        }
+
+        return round((float) $amb['custom_commission_rate'], 2);
+    }
+
+    /**
+     * Recompute frozen ambassador/owner rates for all confirmed Table sales of an ambassador in YYYY-MM.
+     * Unassigned Sales rows are skipped. Uses confirmed_commission_base_rate when set; otherwise infers legacy rows.
+     */
+    public function syncFrozenCommissionRatesForAmbassadorMonth(int $ambassadorId, string $yearMonth): void
+    {
+        if ($this->isUnassignedSales($ambassadorId)) {
+            return;
+        }
+
+        $amb = $this->ambassadorModel->find($ambassadorId);
+        if (!$amb) {
+            return;
+        }
+
+        $sales = $this->saleModel
+            ->where('ambassador_id', $ambassadorId)
+            ->where('status', 'confirmed')
+            ->where('sale_type', 'Table')
+            ->where("SUBSTR(date, 1, 7)", $yearMonth)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+
+        if ($sales === []) {
+            return;
+        }
+
+        $totalGross = 0.0;
+        foreach ($sales as $s) {
+            $totalGross += (float) $s['gross_amount'];
+        }
+
+        $useKpi = (int) ($amb['use_kpi_bonus'] ?? 0) === 1;
+        $kpi    = $amb['kpi'] !== null && $amb['kpi'] !== '' ? (float) $amb['kpi'] : null;
+        $inc    = $amb['commission_increase'] !== null && $amb['commission_increase'] !== ''
+            ? (float) $amb['commission_increase']
+            : null;
+
+        $kpiMet = $useKpi && $kpi !== null && $inc !== null && $totalGross >= $kpi;
+
+        $pool = (float) config('Commission')->tableCommissionPoolPercent;
+
+        foreach ($sales as $sale) {
+            $baseRaw = $sale['confirmed_commission_base_rate'] ?? null;
+            if ($baseRaw === null || $baseRaw === '') {
+                $base = $this->inferLegacyBaseCommission($sale, $amb);
+            } else {
+                $base = round((float) $baseRaw, 2);
+            }
+
+            $ambRate = $base;
+            if ($kpiMet) {
+                $ambRate += (float) $inc;
+            }
+            $ambRate = round($ambRate, 2);
+
+            if ($ambRate > $pool) {
+                throw new \RuntimeException(
+                    'Ambassador commission rate exceeds the table commission pool (12%).',
+                    422
+                );
+            }
+
+            $ownerRate = round($pool - $ambRate, 2);
+
+            $this->saleModel->update((int) $sale['id'], [
+                'confirmed_commission_rate'       => $ambRate,
+                'confirmed_owner_commission_rate' => $ownerRate,
+            ]);
+        }
     }
 
     public function countReport(array $filters): int
@@ -447,5 +550,28 @@ class CommissionRepository
         $johnny = $this->ambassadorModel->where('name', 'Johnny')->first();
         if (!$johnny) throw new \RuntimeException('Johnny ambassador profile not found.', 500);
         return $johnny;
+    }
+
+    /**
+     * Best-effort base % for rows confirmed before confirmed_commission_base_rate existed.
+     */
+    private function inferLegacyBaseCommission(array $sale, array $amb): float
+    {
+        $confirmed = round((float) ($sale['confirmed_commission_rate'] ?? 0), 2);
+        $custom    = round((float) ($amb['custom_commission_rate'] ?? 0), 2);
+        $inc       = $amb['commission_increase'] !== null && $amb['commission_increase'] !== ''
+            ? round((float) $amb['commission_increase'], 2)
+            : null;
+
+        $useKpi = (int) ($amb['use_kpi_bonus'] ?? 0) === 1;
+
+        if ($useKpi && $inc !== null && abs($confirmed - ($custom + $inc)) < 0.001) {
+            return $custom;
+        }
+        if (abs($confirmed - $custom) < 0.001) {
+            return $custom;
+        }
+
+        return $confirmed;
     }
 }

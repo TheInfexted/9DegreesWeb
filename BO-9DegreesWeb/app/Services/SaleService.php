@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Repositories\AmbassadorRepository;
 use App\Repositories\SaleRepository;
+use Config\Database;
 
 class SaleService
 {
@@ -142,35 +143,75 @@ class SaleService
         if (!$sale) throw new \RuntimeException('Sale not found.', 404);
         if ($sale['status'] !== 'draft') throw new \RuntimeException('Only draft sales can be confirmed.', 400);
 
-        $rates = $commissionService->resolveFrozenCommissionRates($id);
+        $db = Database::connect();
+        $db->transStart();
+        try {
+            $rates = $commissionService->resolveFrozenCommissionRates($id);
+            $base  = $commissionService->resolveFrozenCommissionBaseRate($id);
 
-        $ok = $this->saleRepo->confirmIfDraft($id, [
-            'status'                            => 'confirmed',
-            'confirmed_commission_rate'         => $rates['ambassador_rate'],
-            'confirmed_owner_commission_rate'   => $rates['owner_rate'],
-            'confirmed_at'                      => date('Y-m-d H:i:s'),
-        ]);
-        if (!$ok) {
-            throw new \RuntimeException('Sale is no longer in draft status.', 409);
+            $ok = $this->saleRepo->confirmIfDraft($id, [
+                'status'                            => 'confirmed',
+                'confirmed_commission_rate'         => $rates['ambassador_rate'],
+                'confirmed_owner_commission_rate'   => $rates['owner_rate'],
+                'confirmed_commission_base_rate'      => $base,
+                'confirmed_at'                      => date('Y-m-d H:i:s'),
+            ]);
+            if (!$ok) {
+                $db->transRollback();
+                throw new \RuntimeException('Sale is no longer in draft status.', 409);
+            }
+
+            $yearMonth = substr((string) $sale['date'], 0, 7);
+            $commissionService->syncFrozenCommissionRatesForAmbassadorMonth((int) $sale['ambassador_id'], $yearMonth);
+
+            if ($db->transComplete() === false) {
+                throw new \RuntimeException('Could not confirm sale.', 500);
+            }
+
+            $updated = $this->saleRepo->findById($id);
+            if (!$updated) throw new \RuntimeException('Sale not found after confirm.', 500);
+            return $updated;
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
         }
-
-        $updated = $this->saleRepo->findById($id);
-        if (!$updated) throw new \RuntimeException('Sale not found after confirm.', 500);
-        return $updated;
     }
 
-    public function void(int $id): array
+    public function void(int $id, CommissionService $commissionService): array
     {
         $sale = $this->saleRepo->findById($id);
         if (!$sale) throw new \RuntimeException('Sale not found.', 404);
         if ($sale['status'] === 'void') throw new \RuntimeException('Sale is already voided.', 400);
 
-        return $this->saleRepo->update($id, [
-            'status'                            => 'void',
-            'confirmed_commission_rate'         => null,
-            'confirmed_owner_commission_rate'   => null,
-            'confirmed_at'                      => null,
-        ]);
+        $wasConfirmed = $sale['status'] === 'confirmed';
+        $syncTable    = $sale['sale_type'] === 'Table' && $wasConfirmed;
+        $ambassadorId = (int) $sale['ambassador_id'];
+        $yearMonth    = substr((string) $sale['date'], 0, 7);
+
+        $db = Database::connect();
+        $db->transStart();
+        try {
+            $updated = $this->saleRepo->update($id, [
+                'status'                            => 'void',
+                'confirmed_commission_rate'         => null,
+                'confirmed_owner_commission_rate'   => null,
+                'confirmed_commission_base_rate'    => null,
+                'confirmed_at'                      => null,
+            ]);
+
+            if ($syncTable) {
+                $commissionService->syncFrozenCommissionRatesForAmbassadorMonth($ambassadorId, $yearMonth);
+            }
+
+            if ($db->transComplete() === false) {
+                throw new \RuntimeException('Could not void sale.', 500);
+            }
+
+            return $updated;
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
+        }
     }
 
     public function getAvailableMonths(): array

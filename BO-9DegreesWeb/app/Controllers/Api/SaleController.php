@@ -133,7 +133,7 @@ class SaleController extends BaseApiController
     public function void($id = null): \CodeIgniter\HTTP\ResponseInterface
     {
         try {
-            return $this->ok($this->saleService->void((int) $id));
+            return $this->ok($this->saleService->void((int) $id, $this->commissionService));
         } catch (\RuntimeException $e) {
             return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
         }

@@ -307,4 +307,99 @@ class CommissionTest extends CIUnitTestCase
         $this->assertEquals(0.0, (float) $data['confirmed_commission_rate']);
         $this->assertEquals(12.0, (float) $data['confirmed_owner_commission_rate']);
     }
+
+    /** Once monthly Table total reaches KPI, bonus applies to all Table sales in that month (including earlier confirms). */
+    public function test_kpi_bonus_retroactive_to_prior_confirms_in_month(): void
+    {
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->withBodyFormat('json')
+             ->put("/api/v1/ambassadors/{$this->ambassadorId}", ['use_kpi_bonus' => 1]);
+
+        $create1 = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                        ->post('/api/v1/sales', [
+                            'ambassador_id' => $this->ambassadorId,
+                            'date'          => '2025-12-05',
+                            'sale_type'     => 'Table',
+                            'table_number'  => 'T-KPI-A',
+                            'gross_amount'  => 1000,
+                        ]);
+        $id1 = json_decode($create1->getJSON(), true)['data']['id'];
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post("/api/v1/sales/{$id1}/confirm");
+
+        $r1 = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                    ->get("/api/v1/sales/{$id1}");
+        $d1 = json_decode($r1->getJSON(), true)['data'];
+        $this->assertEquals(8.00, (float) $d1['confirmed_commission_rate']);
+
+        $create2 = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                        ->post('/api/v1/sales', [
+                            'ambassador_id' => $this->ambassadorId,
+                            'date'          => '2025-12-10',
+                            'sale_type'     => 'Table',
+                            'table_number'  => 'T-KPI-B',
+                            'gross_amount'  => 4000,
+                        ]);
+        $id2 = json_decode($create2->getJSON(), true)['data']['id'];
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post("/api/v1/sales/{$id2}/confirm");
+
+        $r1b = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                     ->get("/api/v1/sales/{$id1}");
+        $d1b = json_decode($r1b->getJSON(), true)['data'];
+        $this->assertEquals(10.00, (float) $d1b['confirmed_commission_rate']);
+        $this->assertEquals(2.00, (float) $d1b['confirmed_owner_commission_rate']);
+
+        $r2 = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                    ->get("/api/v1/sales/{$id2}");
+        $d2 = json_decode($r2->getJSON(), true)['data'];
+        $this->assertEquals(10.00, (float) $d2['confirmed_commission_rate']);
+        $this->assertEquals(2.00, (float) $d2['confirmed_owner_commission_rate']);
+    }
+
+    /** Voiding sales so the month drops below KPI removes the bonus from remaining confirmed Table sales. */
+    public function test_void_reduces_month_below_kpi_strips_bonus_from_remaining(): void
+    {
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->withBodyFormat('json')
+             ->put("/api/v1/ambassadors/{$this->ambassadorId}", ['use_kpi_bonus' => 1]);
+
+        $ids = [];
+        foreach (['T-V1', 'T-V2', 'T-V3'] as $tn) {
+            $c = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                      ->post('/api/v1/sales', [
+                          'ambassador_id' => $this->ambassadorId,
+                          'date'          => '2025-12-20',
+                          'sale_type'     => 'Table',
+                          'table_number'  => $tn,
+                          'gross_amount'  => 2000,
+                      ]);
+            $ids[] = json_decode($c->getJSON(), true)['data']['id'];
+        }
+
+        foreach ($ids as $sid) {
+            $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                 ->post("/api/v1/sales/{$sid}/confirm");
+        }
+
+        foreach ($ids as $sid) {
+            $r = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                      ->get("/api/v1/sales/{$sid}");
+            $d = json_decode($r->getJSON(), true)['data'];
+            $this->assertEquals(10.00, (float) $d['confirmed_commission_rate'], "sale {$sid}");
+        }
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post("/api/v1/sales/{$ids[2]}/void");
+
+        foreach (array_slice($ids, 0, 2) as $sid) {
+            $r = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                      ->get("/api/v1/sales/{$sid}");
+            $d = json_decode($r->getJSON(), true)['data'];
+            $this->assertEquals(8.00, (float) $d['confirmed_commission_rate']);
+            $this->assertEquals(4.00, (float) $d['confirmed_owner_commission_rate']);
+        }
+    }
 }
