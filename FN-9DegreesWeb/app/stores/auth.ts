@@ -21,7 +21,8 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isAuthenticated: (state) => !!state.token && Date.now() < (state.expiresAt ?? 0) * 1000,
+    isAuthenticated: (state) =>
+      !!state.token && Date.now() < ((state.expiresAt ?? 0) * 1000) - 30_000,
     isOwner: (state) => state.user?.role === 'owner',
     isAdmin: (state) => ['owner', 'admin'].includes(state.user?.role ?? ''),
   },
