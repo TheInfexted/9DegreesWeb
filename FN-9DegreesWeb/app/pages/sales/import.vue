@@ -320,7 +320,9 @@ async function doParse() {
     const parsed = json.data ?? json
     rows.value   = (parsed.rows as any[]).map(r => ({
       ...r,
-      decision: r.existing_sale !== null ? 'skip' : 'create',
+      // duplicate_in_file rows are always skipped — they cannot be imported.
+      // existing_sale rows default to skip, requiring explicit user decision.
+      decision: (r.duplicate_in_file || r.existing_sale !== null) ? 'skip' : 'create',
       editing:  false,
     }))
     parseErrors.value = parsed.errors ?? []

@@ -137,6 +137,17 @@ class SaleImportService
         $skipped = 0;
         $failed  = [];
 
+        // Pre-fetch all existing sales for overwrite rows in one query (avoids N+1).
+        $overwriteReceipts = [];
+        foreach ($decisions as $d) {
+            if (($d['action'] ?? '') === 'overwrite' && isset($d['receipt']) && trim((string) $d['receipt']) !== '') {
+                $overwriteReceipts[] = trim((string) $d['receipt']);
+            }
+        }
+        $existingByReceipt = $overwriteReceipts !== []
+            ? $this->saleRepo->findExistingByReceipts($overwriteReceipts)
+            : [];
+
         foreach ($decisions as $d) {
             $receipt = trim((string) ($d['receipt'] ?? ''));
             $action  = (string) ($d['action'] ?? '');
@@ -158,11 +169,13 @@ class SaleImportService
                     $this->saleService->create($payload, $createdBy);
                     $created++;
                 } elseif ($action === 'overwrite') {
-                    $existing = $this->saleRepo->findExistingByReceipts([$receipt])[$receipt] ?? null;
+                    $existing = $existingByReceipt[$receipt] ?? null;
                     if ($existing === null) {
-                        // Nothing to overwrite — fall back to create.
-                        $this->saleService->create($payload, $createdBy);
-                        $created++;
+                        // Receipt no longer exists — fail loudly so the user knows.
+                        $failed[] = [
+                            'receipt' => $receipt,
+                            'message' => 'Existing sale not found; cannot overwrite.',
+                        ];
                     } elseif ($existing['status'] !== 'draft') {
                         $failed[] = [
                             'receipt' => $receipt,
@@ -207,7 +220,13 @@ class SaleImportService
      */
     private function parseRowLine(string $line): ?array
     {
-        // Header: <day> <Mon> <year><settlement-date> <hh:mm> <AM|PM><receipt><rest>
+        // Each data row is concatenated by pdfparser with no delimiters between columns:
+        //   capture 1 = day      e.g. "2"
+        //   capture 2 = month    e.g. "Feb"
+        //   capture 3 = year     e.g. "2026"
+        //   (non-capturing)      settlement datetime e.g. "2026-02-03 12:23 AM"
+        //   capture 4 = receipt  e.g. "A00101202602030006"
+        //   capture 5 = rest     e.g. "Johnny(PP)L10\tRM 6,028.0011.00% RM 663.08"
         if (!preg_match(
             '/^(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}\s+(?:AM|PM)([A-Z]\d+)(.+)$/',
             $line,

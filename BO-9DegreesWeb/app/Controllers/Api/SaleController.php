@@ -171,8 +171,14 @@ class SaleController extends BaseApiController
         try {
             $body         = $this->json();
             $ambassadorId = (int) ($body['ambassador_id'] ?? 0);
-            $decisions    = is_array($body['decisions'] ?? null) ? $body['decisions'] : [];
-            $createdBy    = $this->currentUser()->user_id;
+            if ($ambassadorId <= 0) {
+                return $this->badRequest('ambassador_id is required.');
+            }
+            $decisions = $body['decisions'] ?? null;
+            if (!is_array($decisions) || $decisions === []) {
+                return $this->badRequest('decisions must be a non-empty array.');
+            }
+            $createdBy = $this->currentUser()->user_id;
 
             return $this->ok($this->saleImportService->commit($decisions, $ambassadorId, $createdBy));
         } catch (\RuntimeException $e) {

@@ -46,6 +46,26 @@ class SalesImportTest extends CIUnitTestCase
      * is_uploaded_file() which only returns true for real HTTP uploads, so we
      * override it with an anonymous subclass.
      */
+    /** @var list<string> Temp files created by uploadedFixture(); cleaned up in tearDown. */
+    private array $tmpFiles = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tmpFiles as $path) {
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        }
+        parent::tearDown();
+    }
+
+    /**
+     * Wraps a file in an UploadedFile that emulates a real upload —
+     * CI4's FeatureTestTrait doesn't natively support multipart, so we exercise
+     * the service directly for the parse path. UploadedFile::isValid() relies on
+     * is_uploaded_file() which only returns true for real HTTP uploads, so we
+     * override it with an anonymous subclass.
+     */
     private function uploadedFixture(string $sourcePath = null, string $name = null, string $mime = 'application/pdf'): UploadedFile
     {
         $sourcePath ??= $this->fixturePath;
@@ -53,6 +73,7 @@ class SalesImportTest extends CIUnitTestCase
 
         $tmp = tempnam(sys_get_temp_dir(), 'sales-import-');
         copy($sourcePath, $tmp);
+        $this->tmpFiles[] = $tmp;
 
         return new class ($tmp, $name, $mime, null, UPLOAD_ERR_OK, true) extends UploadedFile {
             public function isValid(): bool { return $this->error === UPLOAD_ERR_OK; }
@@ -235,6 +256,7 @@ class SalesImportTest extends CIUnitTestCase
     public function test_parse_rejects_non_pdf_upload(): void
     {
         $tmp = tempnam(sys_get_temp_dir(), 'sales-import-');
+        $this->tmpFiles[] = $tmp;
         file_put_contents($tmp, "not a pdf\n");
 
         $upload = new class ($tmp, 'fake.txt', 'text/plain', null, UPLOAD_ERR_OK, true) extends UploadedFile {
@@ -251,5 +273,85 @@ class SalesImportTest extends CIUnitTestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Ambassador not found');
         (new SaleImportService())->parsePdf($this->uploadedFixture(), 999999);
+    }
+
+    public function test_commit_overwrite_fails_when_receipt_not_found(): void
+    {
+        $owner  = json_decode($this->post('/api/v1/auth/login', ['username' => 'johnny', 'password' => 'password'])->getJSON(), true);
+        $userId = (int) $owner['user']['id'];
+
+        $result = (new SaleImportService())->commit([
+            [
+                'action'       => 'overwrite',
+                'receipt'      => 'RECEIPT-DOES-NOT-EXIST',
+                'date'         => '2026-02-02',
+                'sale_type'    => 'Table',
+                'table_number' => 'K01',
+                'gross_amount' => 100.00,
+            ],
+        ], $this->ambassadorId, $userId);
+
+        $this->assertSame(0, $result['created']);
+        $this->assertSame(0, $result['updated']);
+        $this->assertCount(1, $result['failed']);
+        $this->assertStringContainsString('not found', $result['failed'][0]['message']);
+    }
+
+    // -----------------------------------------------------------------------
+    // HTTP-level endpoint tests (via FeatureTestTrait)
+    // -----------------------------------------------------------------------
+
+    // Note: JWT filter rejection (401) cannot be tested via CI4's FeatureTestTrait
+    // because the test runner does not execute route filters. JWT auth is shared
+    // infrastructure already relied on by every other protected endpoint in the suite.
+
+    public function test_commit_endpoint_rejects_missing_ambassador_id(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+            ->withBodyFormat('json')
+            ->post('/api/v1/sales/import/commit', [
+                'decisions' => [['action' => 'skip', 'receipt' => 'X']],
+            ]);
+        $result->assertStatus(400);
+        $this->assertStringContainsString('ambassador_id', json_decode($result->getJSON(), true)['message']);
+    }
+
+    public function test_commit_endpoint_rejects_empty_decisions(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+            ->withBodyFormat('json')
+            ->post('/api/v1/sales/import/commit', [
+                'ambassador_id' => $this->ambassadorId,
+                'decisions'     => [],
+            ]);
+        $result->assertStatus(400);
+        $this->assertStringContainsString('decisions', json_decode($result->getJSON(), true)['message']);
+    }
+
+    public function test_commit_endpoint_creates_drafts_via_http(): void
+    {
+        $decisions = [
+            [
+                'action'       => 'create',
+                'receipt'      => 'A00101202602030006',
+                'date'         => '2026-02-02',
+                'sale_type'    => 'Table',
+                'table_number' => 'L10',
+                'gross_amount' => 6028.00,
+            ],
+        ];
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+            ->withBodyFormat('json')
+            ->post('/api/v1/sales/import/commit', [
+                'ambassador_id' => $this->ambassadorId,
+                'decisions'     => $decisions,
+            ]);
+
+        $result->assertStatus(200);
+        $data = json_decode($result->getJSON(), true)['data'];
+        $this->assertSame(1, $data['created']);
+        $this->assertSame(0, $data['updated']);
+        $this->assertSame([], $data['failed']);
     }
 }
