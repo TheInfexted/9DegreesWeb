@@ -144,12 +144,19 @@ class SaleService
 
         $rates = $commissionService->resolveFrozenCommissionRates($id);
 
-        return $this->saleRepo->update($id, [
+        $ok = $this->saleRepo->confirmIfDraft($id, [
             'status'                            => 'confirmed',
             'confirmed_commission_rate'         => $rates['ambassador_rate'],
             'confirmed_owner_commission_rate'   => $rates['owner_rate'],
             'confirmed_at'                      => date('Y-m-d H:i:s'),
         ]);
+        if (!$ok) {
+            throw new \RuntimeException('Sale is no longer in draft status.', 409);
+        }
+
+        $updated = $this->saleRepo->findById($id);
+        if (!$updated) throw new \RuntimeException('Sale not found after confirm.', 500);
+        return $updated;
     }
 
     public function void(int $id): array

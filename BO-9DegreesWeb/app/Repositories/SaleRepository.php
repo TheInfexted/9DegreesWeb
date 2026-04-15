@@ -65,6 +65,17 @@ class SaleRepository
         return $this->findById($id);
     }
 
+    /**
+     * Atomically transition a sale from draft → confirmed, writing the frozen rates.
+     * Returns true if exactly one row was updated (sale was still draft when the UPDATE ran).
+     * Returns false if no row matched (already confirmed / voided by another request).
+     */
+    public function confirmIfDraft(int $id, array $data): bool
+    {
+        $this->model->where('id', $id)->where('status', 'draft')->set($data)->update();
+        return $this->model->db->affectedRows() === 1;
+    }
+
     public function delete(int $id): void
     {
         $this->model->delete($id);
