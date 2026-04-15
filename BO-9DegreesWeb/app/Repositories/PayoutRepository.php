@@ -22,9 +22,12 @@ class PayoutRepository
         $page    = max(1, $page);
         $offset  = ($page - 1) * $perPage;
 
+        // Do not use Model::findAll() after chaining joins/select: doFindAll() can break this query on SQLite
+        // ("ambiguous column name"). Same pattern as CommissionRepository::findReportPaginated.
         return $this->makeListBuilder($filters)
             ->limit($perPage, $offset)
-            ->findAll();
+            ->get()
+            ->getResultArray();
     }
 
     /**
@@ -102,6 +105,10 @@ class PayoutRepository
 
     private function makeListBuilder(array $filters): PayoutModel
     {
+        // PayoutModel uses a shared query builder; countFiltered() uses countAllResults(false) and must not
+        // leave joins/select stacked for a second makeListBuilder() in the same request (paginated list).
+        $this->model->builder()->resetQuery();
+
         $builder = $this->model
             ->select('payouts.*, ambassadors.name as ambassador_name, ambassadors.full_name,
                       ambassadors.bank_name, ambassadors.bank_account_number, ambassadors.bank_owner_name,

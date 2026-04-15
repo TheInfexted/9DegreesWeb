@@ -12,6 +12,18 @@
           <div v-if="loadingMonth" class="px-4 py-6 text-center text-[13px] text-gray-400">Loading…</div>
           <template v-else>
             <label
+              v-if="eligibleAmbassadors.length"
+              class="flex items-center gap-3 px-4 py-2.5 bg-[#FAFAFA] border-b border-[#F0F0F0] cursor-pointer hover:bg-gray-50"
+            >
+              <input
+                type="checkbox"
+                class="accent-[#00C4CC]"
+                :checked="allEligibleSelected"
+                @change="toggleSelectAllEligible"
+              />
+              <span class="text-[13px] font-medium text-ink">Select all</span>
+            </label>
+            <label
               v-for="amb in eligibleAmbassadors"
               :key="amb.id"
               class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-[#F0F0F0] last:border-b-0"
@@ -105,6 +117,21 @@ const eligibleAmbassadors = computed(() => {
     (a) => a.name !== 'Johnny' && a.name !== 'Unassigned Sales' && !existingIds.has(a.id),
   )
 })
+
+const allEligibleSelected = computed(
+  () =>
+    eligibleAmbassadors.value.length > 0
+    && selectedIds.value.length === eligibleAmbassadors.value.length
+    && eligibleAmbassadors.value.every((a) => selectedIds.value.includes(a.id)),
+)
+
+function toggleSelectAllEligible() {
+  if (allEligibleSelected.value) {
+    selectedIds.value = []
+    return
+  }
+  selectedIds.value = eligibleAmbassadors.value.map((a) => a.id)
+}
 
 watch(selectedMonth, (m) => {
   selectedIds.value = []

@@ -91,4 +91,20 @@ class PayoutsTest extends CIUnitTestCase
         $result->assertStatus(200);
         $this->assertNotNull(json_decode($result->getJSON(), true)['data']['paid_at']);
     }
+
+    public function test_payouts_index_paginated_returns_rows(): void
+    {
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post('/api/v1/payouts', ['ambassador_id' => $this->ambassadorId, 'month' => '2025-12-01']);
+
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/payouts', ['page' => 1, 'per_page' => 25]);
+        $result->assertStatus(200);
+        $body = json_decode($result->getJSON(), true);
+        $this->assertIsArray($body['data']);
+        $this->assertNotEmpty($body['data']);
+        $this->assertArrayHasKey('meta', $body);
+        $this->assertGreaterThanOrEqual(1, (int) ($body['meta']['total'] ?? 0));
+        $this->assertArrayHasKey('ambassador_name', $body['data'][0]);
+    }
 }
