@@ -165,28 +165,49 @@ class PayoutService
         return $this->repo->getAvailableMonths();
     }
 
-    public function generateSummaryPdf(int $id): string
+    /**
+     * @return array{body: string, filename: string}
+     */
+    public function generateSummaryPdf(int $id): array
     {
         $data    = $this->buildPdfData($id);
         $html    = view('pdf/payout_summary', $data);
         $service = new PdfService();
-        return $service->generate($html, $data['payout']['reference'] . '.pdf');
+        $body    = $service->generate($html, $data['payout']['filename_commission_pdf']);
+
+        return [
+            'body'     => $body,
+            'filename' => $data['payout']['filename_commission_pdf'],
+        ];
     }
 
     public function generatePayslipPdf(int $id): array
     {
+        $existing = $this->repo->findById($id);
+        if (!$existing) {
+            throw new \RuntimeException('Payout not found.', 404);
+        }
+        if (!empty($existing['payslip_path'])) {
+            $old = WRITEPATH . 'uploads/' . $existing['payslip_path'];
+            if (is_file($old)) {
+                @unlink($old);
+            }
+        }
+
         $data    = $this->buildPdfData($id);
         $html    = view('pdf/payslip', $data);
         $service = new PdfService();
-        $pdf     = $service->generate($html, $data['payout']['payslip_reference'] . '.pdf');
+        $pdf     = $service->generate($html, $data['payout']['filename_payslip_pdf']);
 
         $dir = self::PAYSLIP_UPLOAD_PATH . $id . '/';
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
 
-        $filename = $data['payout']['payslip_reference'] . '.pdf';
+        $filename     = $data['payout']['filename_payslip_pdf'];
+        $relativePath = 'payslips/' . $id . '/' . $filename;
         file_put_contents($dir . $filename, $pdf);
 
-        $relativePath = 'payslips/' . $id . '/' . $filename;
         $this->repo->update($id, ['payslip_path' => $relativePath]);
 
         return $this->repo->findById($id);
@@ -218,6 +239,10 @@ class PayoutService
         $ambassadorSlug = str_replace(' ', '', ucwords((string) $payout['ambassador_name']));
         $monthCode      = strtoupper(date('MY', $periodDate));
 
+        $downloadNames                 = $this->payoutDownloadFilenames($payout);
+        $payout['filename_commission_pdf'] = $downloadNames['commission'];
+        $payout['filename_payslip_pdf']    = $downloadNames['payslip'];
+
         $payout['period_label']      = $periodLabel;
         $payout['period_full_label'] = "{$periodStart} – {$periodEnd}";
         $payout['reference']         = "{$monthCode}_9DEG_COMM_{$ambassadorSlug}";
@@ -245,6 +270,33 @@ class PayoutService
     {
         $rows = db_connect()->table('settings')->get()->getResultArray();
         return array_combine(array_column($rows, 'key'), array_column($rows, 'value'));
+    }
+
+    /**
+     * Browser download / stored PDF names: {YYYY-MM}_COMM_{Slug}.pdf and {YYYY-MM}_PAYSLIP_{Slug}.pdf
+     *
+     * @return array{commission: string, payslip: string}
+     */
+    private function payoutDownloadFilenames(array $payout): array
+    {
+        $yearMonth = date('Y-m', strtotime($payout['month']));
+        $slug      = $this->ambassadorFilenameSlug((string) ($payout['ambassador_name'] ?? ''));
+
+        return [
+            'commission' => "{$yearMonth}_COMM_{$slug}.pdf",
+            'payslip'    => "{$yearMonth}_PAYSLIP_{$slug}.pdf",
+        ];
+    }
+
+    /**
+     * Filesystem-safe token from ambassador display name (alphanumeric only).
+     */
+    private function ambassadorFilenameSlug(string $name): string
+    {
+        $s = str_replace(' ', '', ucwords(strtolower(trim($name))));
+        $s = preg_replace('/[^A-Za-z0-9]/', '', $s);
+
+        return $s !== '' ? $s : 'Ambassador';
     }
 
     private function assertPayoutAllowedForAmbassador(int $ambassadorId): void

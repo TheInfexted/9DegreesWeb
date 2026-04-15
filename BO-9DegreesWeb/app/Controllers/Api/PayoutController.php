@@ -121,11 +121,12 @@ class PayoutController extends BaseApiController
     public function downloadSummary($id = null): \CodeIgniter\HTTP\ResponseInterface
     {
         try {
-            $pdf = $this->payoutService->generateSummaryPdf((int) $id);
+            $result = $this->payoutService->generateSummaryPdf((int) $id);
+
             return $this->response
                 ->setHeader('Content-Type', 'application/pdf')
-                ->setHeader('Content-Disposition', 'attachment; filename="payout-summary-' . $id . '.pdf"')
-                ->setBody($pdf);
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $result['filename'] . '"')
+                ->setBody($result['body']);
         } catch (\RuntimeException $e) {
             return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
         }
@@ -149,9 +150,11 @@ class PayoutController extends BaseApiController
             $path = WRITEPATH . 'uploads/' . $payout['payslip_path'];
             if (!file_exists($path)) return $this->notFound('Payslip file not found.');
 
+            $filename = basename((string) $payout['payslip_path']);
+
             return $this->response
                 ->setHeader('Content-Type', 'application/pdf')
-                ->setHeader('Content-Disposition', 'attachment; filename="payslip-' . $id . '.pdf"')
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
                 ->setBody(file_get_contents($path));
         } catch (\RuntimeException $e) {
             return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
