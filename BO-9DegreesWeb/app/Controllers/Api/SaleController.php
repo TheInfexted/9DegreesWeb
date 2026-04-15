@@ -3,17 +3,20 @@
 namespace App\Controllers\Api;
 
 use App\Services\CommissionService;
+use App\Services\SaleImportService;
 use App\Services\SaleService;
 
 class SaleController extends BaseApiController
 {
     private SaleService $saleService;
     private CommissionService $commissionService;
+    private SaleImportService $saleImportService;
 
     public function __construct()
     {
         $this->saleService       = new SaleService();
         $this->commissionService = new CommissionService();
+        $this->saleImportService = new SaleImportService();
     }
 
     public function summary(): \CodeIgniter\HTTP\ResponseInterface
@@ -144,5 +147,36 @@ class SaleController extends BaseApiController
     public function latestDefaults(): \CodeIgniter\HTTP\ResponseInterface
     {
         return $this->ok($this->saleService->getLatestDefaults());
+    }
+
+    public function parseImport(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        try {
+            $file = $this->request->getFile('file');
+            if (!$file) {
+                return $this->badRequest('PDF file is required.');
+            }
+            $ambassadorId = (int) $this->request->getPost('ambassador_id');
+            if ($ambassadorId <= 0) {
+                return $this->badRequest('ambassador_id is required.');
+            }
+            return $this->ok($this->saleImportService->parsePdf($file, $ambassadorId));
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e, 400));
+        }
+    }
+
+    public function commitImport(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        try {
+            $body         = $this->json();
+            $ambassadorId = (int) ($body['ambassador_id'] ?? 0);
+            $decisions    = is_array($body['decisions'] ?? null) ? $body['decisions'] : [];
+            $createdBy    = $this->currentUser()->user_id;
+
+            return $this->ok($this->saleImportService->commit($decisions, $ambassadorId, $createdBy));
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e));
+        }
     }
 }

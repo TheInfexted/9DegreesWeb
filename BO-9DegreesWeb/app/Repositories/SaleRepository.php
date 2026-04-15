@@ -81,6 +81,35 @@ class SaleRepository
         $this->model->delete($id);
     }
 
+    /**
+     * Look up existing sales whose remarks exactly match `Receipt: <receipt>` for any
+     * of the given receipts. Used by the PDF import flow to flag duplicates.
+     *
+     * @param  list<string> $receipts
+     * @return array<string, array{id:int,status:string}> Map of receipt => [id, status]
+     */
+    public function findExistingByReceipts(array $receipts): array
+    {
+        if ($receipts === []) {
+            return [];
+        }
+        $exact = array_map(static fn(string $r): string => 'Receipt: ' . $r, $receipts);
+        $rows  = $this->model
+            ->select('id, status, remarks')
+            ->whereIn('remarks', $exact)
+            ->findAll();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $receipt = substr((string) $row['remarks'], strlen('Receipt: '));
+            $result[$receipt] = [
+                'id'     => (int) $row['id'],
+                'status' => (string) $row['status'],
+            ];
+        }
+        return $result;
+    }
+
     public function getAvailableMonths(): array
     {
         return $this->model

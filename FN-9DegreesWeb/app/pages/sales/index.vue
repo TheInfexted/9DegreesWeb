@@ -12,14 +12,19 @@
         <p class="text-[12px] text-gray-500">
           Confirm all applies to every <span class="font-medium text-ink">draft</span> row matching ambassador and month.
         </p>
-        <button
-          type="button"
-          class="btn-primary text-[13px] shrink-0"
-          :disabled="confirmAllLoading"
-          @click="doConfirmAll"
-        >
-          {{ confirmAllLoading ? 'Confirming…' : 'Confirm all draft sales' }}
-        </button>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center shrink-0">
+          <NuxtLink to="/sales/import" class="btn-secondary text-[13px] text-center">
+            Import from PDF
+          </NuxtLink>
+          <button
+            type="button"
+            class="btn-primary text-[13px]"
+            :disabled="confirmAllLoading"
+            @click="doConfirmAll"
+          >
+            {{ confirmAllLoading ? 'Confirming…' : 'Confirm all draft sales' }}
+          </button>
+        </div>
       </div>
     </div>
 

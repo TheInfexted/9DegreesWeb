@@ -47,6 +47,8 @@ $routes->group('api/v1', function ($routes) {
         $routes->get('sales/latest-defaults',   'Api\SaleController::latestDefaults');
         $routes->get('sales/summary',           'Api\SaleController::summary');
         $routes->post('sales/confirm-drafts',   'Api\SaleController::confirmDrafts');
+        $routes->post('sales/import/parse',     'Api\SaleController::parseImport');
+        $routes->post('sales/import/commit',    'Api\SaleController::commitImport');
         $routes->get('sales',                   'Api\SaleController::index');
         $routes->post('sales',                  'Api\SaleController::create');
         $routes->get('sales/(:num)',             'Api\SaleController::show/$1');
