@@ -52,12 +52,25 @@ export function useAPI<T = unknown>(
         navigateTo('/login')
         return
       }
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.message ?? 'Request failed.')
-      data.value = json.data ?? json
-      meta.value = json.meta ?? null
+      let json: any = null
+      try { json = await res.json() } catch { json = null }
+
+      if (!res.ok) {
+        if (res.status >= 500) {
+          error.value = 'Server error, please try again.'
+        } else if (res.status >= 400) {
+          error.value = (json && typeof json.message === 'string') ? json.message : 'Request failed.'
+        } else {
+          error.value = 'Unexpected response.'
+        }
+        meta.value = null
+        return
+      }
+
+      data.value = json?.data ?? json
+      meta.value = json?.meta ?? null
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Unknown error'
+      error.value = 'Network error, please check your connection.'
       meta.value  = null
     } finally {
       loading.value = false
