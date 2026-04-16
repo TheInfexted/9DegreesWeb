@@ -45,6 +45,16 @@ class AuthTest extends CIUnitTestCase
         $result->assertStatus(401);
     }
 
+    public function test_login_username_must_match_stored_casing(): void
+    {
+        $result = $this->post('/api/v1/auth/login', [
+            'username' => 'Johnny',
+            'password' => 'password',
+        ]);
+
+        $result->assertStatus(401);
+    }
+
     public function test_protected_route_without_token_returns_401(): void
     {
         $result = $this->get('/api/v1/ambassadors');

@@ -21,6 +21,13 @@ class UserModel extends Model
 
     public function findByUsername(string $username): ?array
     {
-        return $this->where('username', $username)->where('is_active', 1)->first();
+        $user = $this->where('username', $username)->where('is_active', 1)->first();
+
+        // MySQL default collations treat = as case-insensitive; require exact stored casing.
+        if ($user !== null && $user['username'] !== $username) {
+            return null;
+        }
+
+        return $user;
     }
 }
