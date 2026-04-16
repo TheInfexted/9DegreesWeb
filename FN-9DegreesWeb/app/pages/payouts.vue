@@ -25,16 +25,23 @@
     <!-- Table -->
     <AppTable :columns="columns" :rows="payouts" :loading="loading">
       <template #default="{ row }">
-        <td class="px-4 py-3 text-[13px] font-medium text-ink">{{ row.ambassador_name }}</td>
+        <td class="px-4 py-3 text-[13px] font-medium text-ink">
+          <button type="button" class="hover:underline hover:text-[#00A0A6] text-left" @click="openDetail(row)">
+            {{ row.ambassador_name }}
+          </button>
+        </td>
         <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.month?.slice(0, 7) }}</td>
         <td class="px-4 py-3 text-[13px] text-right font-semibold text-[#00A0A6]">{{ formatRM(row.total_commission) }}</td>
         <td class="px-4 py-3"><AppBadge :variant="row.paid_at ? 'paid' : 'unpaid'">{{ row.paid_at ? 'Paid' : 'Unpaid' }}</AppBadge></td>
         <td class="px-4 py-3 text-[13px] text-gray-400">{{ row.paid_at ? formatDate(row.paid_at) : '—' }}</td>
         <td class="px-4 py-3">
-          <div class="flex justify-end gap-1">
+          <div class="flex justify-end gap-1 items-center">
             <button v-if="!row.paid_at" class="act-btn text-[#007a80]" title="Mark as Paid" @click="doMarkPaid(row)">✓</button>
             <button class="act-btn" title="Download Summary" @click="doDownloadSummary(row)">↓</button>
             <button class="act-btn text-purple-500" title="Generate Payslip" @click="doGeneratePayslip(row)">📄</button>
+            <button class="act-btn text-[#00A0A6]" title="Receipts" @click="openReceipts(row)">
+              📎<span v-if="receiptCount(row) > 0" class="ml-0.5 text-[10px] font-bold">{{ receiptCount(row) }}</span>
+            </button>
             <button class="act-btn text-red-400" title="Delete" @click="doDelete(row)">✕</button>
           </div>
         </td>
@@ -81,6 +88,29 @@
     </div>
 
     <PayoutCreateModal v-model="showCreate" @saved="refresh" />
+    <PayoutReceiptModal v-model="showReceipts" :payout="receiptRow" @updated="refresh" />
+
+    <AppModal v-model="showDetail" title="Ambassador Details" size="sm">
+      <div v-if="detailRow" class="space-y-3 text-[13px]">
+        <div class="grid grid-cols-[110px_1fr] gap-y-2">
+          <span class="text-gray-400">Full Name</span>
+          <span class="text-ink font-medium">{{ detailRow.full_name || detailRow.ambassador_name }}</span>
+          <span class="text-gray-400">Role</span>
+          <span class="text-ink">{{ detailRow.role_name || '—' }}</span>
+          <span class="text-gray-400">Team</span>
+          <span class="text-ink">{{ detailRow.team_name || '—' }}</span>
+        </div>
+        <hr class="border-[#F0F0F0]" />
+        <div class="grid grid-cols-[110px_1fr] gap-y-2">
+          <span class="text-gray-400">Bank</span>
+          <span class="text-ink">{{ detailRow.bank_name || '—' }}</span>
+          <span class="text-gray-400">Account No.</span>
+          <span class="text-ink font-mono">{{ detailRow.bank_account_number || '—' }}</span>
+          <span class="text-gray-400">Account Owner</span>
+          <span class="text-ink">{{ detailRow.bank_owner_name || '—' }}</span>
+        </div>
+      </div>
+    </AppModal>
   </NuxtLayout>
 </template>
 
@@ -92,7 +122,11 @@ import { downloadPdf } from '~/utils/download'
 
 definePageMeta({ middleware: 'auth' })
 
-const showCreate  = ref(false)
+const showCreate    = ref(false)
+const showReceipts  = ref(false)
+const receiptRow    = ref<any>(null)
+const showDetail    = ref(false)
+const detailRow     = ref<any>(null)
 const filterPaid  = ref('')
 const listParams  = ref({ month: '', page: 1, per_page: 25 })
 const config      = useRuntimeConfig()
@@ -235,5 +269,25 @@ async function doDelete(row: any) {
   if (!ok) return
   await fetch(`${config.public.apiBase}/payouts/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
   await refresh()
+}
+
+function openReceipts(row: any) {
+  receiptRow.value   = row
+  showReceipts.value = true
+}
+
+function receiptCount(row: any): number {
+  if (!row?.receipt_paths) return 0
+  try {
+    const parsed = JSON.parse(row.receipt_paths)
+    return Array.isArray(parsed) ? parsed.length : 0
+  } catch {
+    return 0
+  }
+}
+
+function openDetail(row: any) {
+  detailRow.value  = row
+  showDetail.value = true
 }
 </script>

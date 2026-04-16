@@ -93,6 +93,7 @@ const { data: months }       = useAPI('commissions/months')
 const { data: commData, loading: commLoading } = useAPI('commissions', computed(() => ({
   month: selectedMonth.value || undefined,
 })))
+const { data: chartData }    = useAPI<Array<{ month: string; total_sales: number; total_commission: number }>>('commissions/chart')
 
 const { data: ambassadors }  = useAPI('ambassadors', { status: 'active' })
 const { data: teams }        = useAPI('teams')
@@ -133,23 +134,26 @@ function formatNumber(n: number): string {
 function renderCharts() {
   if (!salesChart.value || !commChart.value) return
   const CYAN   = '#00C4CC'
-  const labels = ['5mo ago','4mo ago','3mo ago','2mo ago','Last mo','This mo']
+  const rows   = (chartData.value ?? []) as Array<{ month: string; total_sales: number; total_commission: number }>
+  const labels = rows.map((r) => formatMonthLabel(r.month))
+  const salesSeries = rows.map((r) => Number(r.total_sales) || 0)
+  const commSeries  = rows.map((r) => Number(r.total_commission) || 0)
 
   if (salesChartInst) salesChartInst.destroy()
   salesChartInst = new Chart(salesChart.value, {
     type: 'line',
-    data: { labels, datasets: [{ data: [0,0,0,0,0,stats.value.totalSales], borderColor: CYAN, backgroundColor: CYAN + '15', fill: true, tension: 0.4, pointBackgroundColor: CYAN }] },
+    data: { labels, datasets: [{ data: salesSeries, borderColor: CYAN, backgroundColor: CYAN + '15', fill: true, tension: 0.4, pointBackgroundColor: CYAN }] },
     options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: '#F0F0F0' } } } },
   })
 
   if (commChartInst) commChartInst.destroy()
   commChartInst = new Chart(commChart.value, {
     type: 'line',
-    data: { labels, datasets: [{ data: [0,0,0,0,0,stats.value.totalCommission], borderColor: CYAN, backgroundColor: CYAN + '15', fill: true, tension: 0.4, pointBackgroundColor: CYAN }] },
+    data: { labels, datasets: [{ data: commSeries, borderColor: CYAN, backgroundColor: CYAN + '15', fill: true, tension: 0.4, pointBackgroundColor: CYAN }] },
     options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: '#F0F0F0' } } } },
   })
 }
 
-watch(stats, () => nextTick(renderCharts))
+watch(chartData, () => nextTick(renderCharts))
 onMounted(() => nextTick(renderCharts))
 </script>
