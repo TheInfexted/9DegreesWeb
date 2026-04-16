@@ -2,3 +2,5 @@
 /docs
 CLAUDE.md
 BO-9DegreesWeb/env
+*.pdf
+*.sql
