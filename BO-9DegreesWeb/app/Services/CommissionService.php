@@ -90,6 +90,14 @@ class CommissionService
     }
 
     /**
+     * @return list<array{month: string, total_sales: float, total_commission: float}>
+     */
+    public function getChartData(int $periods): array
+    {
+        return $this->repo->getChartData($periods);
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     public function listAmbassadorsWithSalesInMonth(string $yearMonth): array

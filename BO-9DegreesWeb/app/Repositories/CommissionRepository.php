@@ -363,6 +363,61 @@ class CommissionRepository
             ->findAll();
     }
 
+    /**
+     * Per-month confirmed-sales totals for the last N calendar months (ending at the current month),
+     * in ascending order. Missing months are returned with zero totals.
+     *
+     * @return list<array{month: string, total_sales: float, total_commission: float}>
+     */
+    public function getChartData(int $periods): array
+    {
+        // Build the ordered list of YYYY-MM buckets ending at the current month.
+        $months = [];
+        for ($i = $periods - 1; $i >= 0; $i--) {
+            $months[] = date('Y-m', strtotime("-{$i} months"));
+        }
+
+        if ($months === []) {
+            return [];
+        }
+
+        $db      = $this->saleModel->db;
+        $escaped = array_map(static fn ($m) => $db->escape($m), $months);
+        $inList  = implode(',', $escaped);
+
+        $rows = $this->saleModel->builder()
+            ->select(
+                'SUBSTR(date, 1, 7) as month, '
+                . 'COALESCE(SUM(gross_amount), 0) as total_sales, '
+                . 'COALESCE(SUM(ROUND(gross_amount * confirmed_commission_rate / 100, 2)), 0) as total_commission',
+                false
+            )
+            ->where('status', 'confirmed')
+            ->where("SUBSTR(date, 1, 7) IN ({$inList})", null, false)
+            ->groupBy('SUBSTR(date, 1, 7)')
+            ->get()
+            ->getResultArray();
+
+        $byMonth = [];
+        foreach ($rows as $row) {
+            $byMonth[$row['month']] = [
+                'total_sales'      => (float) $row['total_sales'],
+                'total_commission' => (float) $row['total_commission'],
+            ];
+        }
+
+        $result = [];
+        foreach ($months as $month) {
+            $result[] = [
+                'month'            => $month,
+                'total_sales'      => $byMonth[$month]['total_sales']      ?? 0.0,
+                'total_commission' => $byMonth[$month]['total_commission'] ?? 0.0,
+            ];
+        }
+
+        return $result;
+    }
+
     /** Physical sales table name including DBPrefix (required for raw SELECT / WHERE fragments). */
     private function prefixedSalesTable(): string
     {
@@ -430,13 +485,14 @@ class CommissionRepository
         $tS = $this->prefixedSalesTable();
         $tA = $db->prefixTable('ambassadors');
         $tR = $db->prefixTable('roles');
+        $tT = $db->prefixTable('teams');
 
         $commissionExpr = 'ROUND(' . $tS . '.gross_amount * ' . $tS . '.confirmed_commission_rate / 100, 2)';
         $reportRateExpr = $tS . '.confirmed_commission_rate';
 
         return $this->saleModel
             ->select(
-                "{$tS}.*, {$tA}.name as ambassador_name, {$tR}.name as role_name, "
+                "{$tS}.*, {$tA}.name as ambassador_name, {$tR}.name as role_name, {$tT}.name as team_name, "
                 . "{$commissionExpr} as commission_amount, "
                 . "ROUND({$tS}.gross_amount * COALESCE({$tS}.confirmed_owner_commission_rate, 0) / 100, 2) as owner_commission_amount, "
                 . "{$reportRateExpr} as report_commission_rate",
@@ -444,6 +500,7 @@ class CommissionRepository
             )
             ->join('ambassadors', "{$tA}.id = {$tS}.ambassador_id", 'left')
             ->join('roles', "{$tR}.id = {$tA}.role_id", 'left')
+            ->join('teams', "{$tT}.id = {$tA}.team_id", 'left')
             ->where("{$tS}.status", 'confirmed')
             ->orderBy("{$tS}.date", 'DESC');
     }

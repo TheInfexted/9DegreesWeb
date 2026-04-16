@@ -94,6 +94,42 @@ class PayoutController extends BaseApiController
         }
     }
 
+    public function downloadReceipt($id = null, $index = null): \CodeIgniter\HTTP\ResponseInterface
+    {
+        try {
+            $payout   = $this->payoutService->get((int) $id);
+            $receipts = json_decode($payout['receipt_paths'] ?? '[]', true) ?: [];
+            $idx      = (int) $index;
+
+            if (!isset($receipts[$idx])) {
+                return $this->notFound('Receipt not found.');
+            }
+
+            $relative = (string) ($receipts[$idx]['path'] ?? '');
+            $full     = WRITEPATH . 'uploads/' . $relative;
+            if ($relative === '' || !is_file($full)) {
+                return $this->notFound('Receipt file missing on disk.');
+            }
+
+            $ext  = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
+            $mime = match ($ext) {
+                'png'          => 'image/png',
+                'jpg', 'jpeg'  => 'image/jpeg',
+                'pdf'          => 'application/pdf',
+                default        => 'application/octet-stream',
+            };
+
+            $filename = (string) ($receipts[$idx]['name'] ?? basename($relative));
+
+            return $this->response
+                ->setHeader('Content-Type', $mime)
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->setBody(file_get_contents($full));
+        } catch (\RuntimeException $e) {
+            return $this->respond(['message' => $e->getMessage()], $e->getCode() ?: 400);
+        }
+    }
+
     public function deleteReceipt($id = null, $index = null): \CodeIgniter\HTTP\ResponseInterface
     {
         try {

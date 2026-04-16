@@ -61,6 +61,7 @@ $routes->group('api/v1', function ($routes) {
         $routes->get('commissions/months',              'Api\CommissionController::months');
         $routes->get('commissions/summary',             'Api\CommissionController::summary');
         $routes->get('commissions/ambassadors-for-month', 'Api\CommissionController::ambassadorsForMonth');
+        $routes->get('commissions/chart',               'Api\CommissionController::chart');
         $routes->get('commissions',                     'Api\CommissionController::index');
 
         // Payouts
@@ -73,6 +74,7 @@ $routes->group('api/v1', function ($routes) {
         $routes->delete('payouts/(:num)',                   'Api\PayoutController::delete/$1');
         $routes->post('payouts/(:num)/mark-paid',           'Api\PayoutController::markPaid/$1');
         $routes->post('payouts/(:num)/receipt',             'Api\PayoutController::uploadReceipt/$1');
+        $routes->get('payouts/(:num)/receipt/(:num)',       'Api\PayoutController::downloadReceipt/$1/$2');
         $routes->delete('payouts/(:num)/receipt/(:num)',    'Api\PayoutController::deleteReceipt/$1/$2');
         $routes->get('payouts/(:num)/summary',              'Api\PayoutController::downloadSummary/$1');
         $routes->post('payouts/(:num)/payslip',             'Api\PayoutController::generatePayslip/$1');

@@ -62,4 +62,13 @@ class CommissionController extends BaseApiController
 
         return $this->ok($this->commissionService->listAmbassadorsWithSalesInMonth($month));
     }
+
+    public function chart(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        $raw     = $this->request->getGet('periods');
+        $periods = ($raw === null || $raw === '') ? 6 : (int) $raw;
+        $periods = max(1, min(24, $periods));
+
+        return $this->ok($this->commissionService->getChartData($periods));
+    }
 }

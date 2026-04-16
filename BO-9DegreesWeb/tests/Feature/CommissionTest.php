@@ -402,4 +402,111 @@ class CommissionTest extends CIUnitTestCase
             $this->assertEquals(4.00, (float) $d['confirmed_owner_commission_rate']);
         }
     }
+
+    /** The commissions report must include team_name so the dashboard table can render it. */
+    public function test_commissions_report_returns_team_name(): void
+    {
+        // Create a team and assign the ambassador to it
+        $teamRes = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                        ->post('/api/v1/teams', ['name' => 'Alpha Squad']);
+        $teamId  = json_decode($teamRes->getJSON(), true)['data']['id'];
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->withBodyFormat('json')
+             ->put("/api/v1/ambassadors/{$this->ambassadorId}", ['team_id' => $teamId]);
+
+        // Create + confirm a sale so it appears in the report
+        $create = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->post('/api/v1/sales', [
+                           'ambassador_id' => $this->ambassadorId,
+                           'date'          => '2025-12-01',
+                           'sale_type'     => 'BGO',
+                           'gross_amount'  => 500,
+                       ]);
+        $saleId = json_decode($create->getJSON(), true)['data']['id'];
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post("/api/v1/sales/{$saleId}/confirm");
+
+        // Hit the commissions report endpoint
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/commissions', ['month' => '2025-12']);
+        $result->assertStatus(200);
+        $body = json_decode($result->getJSON(), true);
+
+        $this->assertNotEmpty($body['data']);
+        $this->assertArrayHasKey('team_name', $body['data'][0]);
+        $this->assertSame('Alpha Squad', $body['data'][0]['team_name']);
+    }
+
+    /** /commissions/chart returns 6 ordered months by default, filling empty months with zeros. */
+    public function test_commissions_chart_returns_six_months_default_with_zero_padding(): void
+    {
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/commissions/chart');
+        $result->assertStatus(200);
+
+        $rows = json_decode($result->getJSON(), true)['data'];
+        $this->assertCount(6, $rows);
+
+        // Months are YYYY-MM strings in ascending order
+        $months = array_column($rows, 'month');
+        $sorted = $months;
+        sort($sorted);
+        $this->assertSame($sorted, $months);
+
+        // Every row exposes the three required numeric keys, defaulting to 0.00
+        foreach ($rows as $row) {
+            $this->assertArrayHasKey('month', $row);
+            $this->assertArrayHasKey('total_sales', $row);
+            $this->assertArrayHasKey('total_commission', $row);
+            $this->assertMatchesRegularExpression('/^\d{4}-\d{2}$/', $row['month']);
+        }
+    }
+
+    /** Confirmed sales land in the correct month bucket with correct totals. */
+    public function test_commissions_chart_sums_confirmed_sales_by_month(): void
+    {
+        // 1 confirmed BGO sale in Dec 2025 (today is 2026-04-16 so Dec is within last 6 months)
+        $saleRes = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                        ->post('/api/v1/sales', [
+                            'ambassador_id' => $this->ambassadorId,
+                            'date'          => '2025-12-15',
+                            'sale_type'     => 'BGO',
+                            'gross_amount'  => 2000,
+                        ]);
+        $saleId = json_decode($saleRes->getJSON(), true)['data']['id'];
+        $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+             ->post("/api/v1/sales/{$saleId}/confirm");
+
+        // Ask for a wider window to guarantee 2025-12 is included regardless of "today"
+        $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                       ->get('/api/v1/commissions/chart', ['periods' => 24]);
+        $result->assertStatus(200);
+        $rows = json_decode($result->getJSON(), true)['data'];
+
+        $dec = null;
+        foreach ($rows as $row) {
+            if ($row['month'] === '2025-12') {
+                $dec = $row;
+                break;
+            }
+        }
+        $this->assertNotNull($dec, '2025-12 should be in the window');
+        $this->assertSame(2000.00, (float) $dec['total_sales']);
+        $this->assertSame(200.00, (float) $dec['total_commission']); // 10% BGO
+    }
+
+    /** periods param is clamped between 1 and 24. */
+    public function test_commissions_chart_clamps_periods(): void
+    {
+        $res1 = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                     ->get('/api/v1/commissions/chart', ['periods' => 0]);
+        $res1->assertStatus(200);
+        $this->assertCount(1, json_decode($res1->getJSON(), true)['data']);
+
+        $res2 = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                     ->get('/api/v1/commissions/chart', ['periods' => 999]);
+        $res2->assertStatus(200);
+        $this->assertCount(24, json_decode($res2->getJSON(), true)['data']);
+    }
 }
