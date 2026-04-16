@@ -12,11 +12,6 @@
 
         <div class="bg-white border border-[#E8E8EC] rounded-2xl p-6 shadow-sm space-y-5">
           <div>
-            <label class="field-label">Ambassador</label>
-            <AppSelect v-model="selectedAmbassadorId" :options="ambassadorOpts" placeholder="Select ambassador" />
-          </div>
-
-          <div>
             <label class="field-label">PDF File</label>
             <label
               class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#E8E8EC] rounded-xl p-8 cursor-pointer hover:border-[#00C4CC] transition-colors"
@@ -40,7 +35,7 @@
             <button
               type="button"
               class="btn-primary text-[13px]"
-              :disabled="!selectedAmbassadorId || !selectedFile || parsing"
+              :disabled="!selectedFile || parsing"
               @click="doParse"
             >
               {{ parsing ? 'Parsing…' : 'Parse PDF' }}
@@ -56,7 +51,7 @@
         <div>
           <h1 class="text-[20px] font-bold text-ink">Review Import</h1>
           <p class="text-[13px] text-gray-500">
-            Importing for <span class="font-medium text-ink">{{ selectedAmbassadorName }}</span>
+            Choose which ambassador each imported sale belongs to. Rows set to Skip do not need an ambassador.
           </p>
         </div>
         <div class="flex gap-2 shrink-0">
@@ -64,7 +59,8 @@
           <button
             type="button"
             class="btn-primary text-[13px]"
-            :disabled="importCount === 0 || committing"
+            :disabled="importCount === 0 || committing || missingAmbassadorOnImportRows"
+            :title="missingAmbassadorOnImportRows ? 'Select an ambassador for every row you are importing.' : undefined"
             @click="doCommit"
           >
             {{ committing ? 'Importing…' : `Import ${importCount} row${importCount !== 1 ? 's' : ''}` }}
@@ -108,6 +104,17 @@
             <!-- Receipt (read-only) -->
             <td class="px-4 py-2 text-[11px] font-mono text-gray-400 whitespace-nowrap max-w-[140px] truncate" :title="row.receipt">
               {{ row.receipt }}
+            </td>
+
+            <!-- Ambassador -->
+            <td class="px-4 py-2 min-w-[160px]">
+              <AppSelect
+                v-model="row.ambassador_id"
+                :options="ambassadorOpts"
+                placeholder="Select ambassador"
+                :disabled="!rowNeedsAmbassador(row)"
+                class="text-[12px] py-1"
+              />
             </td>
 
             <!-- Date -->
@@ -243,6 +250,8 @@ interface ImportRow {
   // mutable preview state
   decision: 'create' | 'overwrite' | 'skip'
   editing:  boolean
+  /** Set on review; required for each row that will be created or overwritten. */
+  ambassador_id: string
 }
 
 interface ParseError {
@@ -261,7 +270,6 @@ const stage = ref<'upload' | 'preview'>('upload')
 /* ------------------------------------------------------------------ */
 const { data: ambassadors } = useAPI('ambassadors', { status: 'active' })
 
-const selectedAmbassadorId = ref<string>('')
 const selectedFile         = ref<File | null>(null)
 const fileInputRef         = ref<HTMLInputElement | null>(null)
 const uploadError          = ref<string | null>(null)
@@ -269,10 +277,6 @@ const parsing              = ref(false)
 
 const ambassadorOpts = computed(() =>
   (ambassadors.value ?? []).map((a: any) => ({ value: String(a.id), label: a.name })),
-)
-
-const selectedAmbassadorName = computed(
-  () => ambassadorOpts.value.find(o => o.value === selectedAmbassadorId.value)?.label ?? '',
 )
 
 function onFileChange(e: Event) {
@@ -301,13 +305,12 @@ const config = useRuntimeConfig()
 const auth   = useAuthStore()
 
 async function doParse() {
-  if (!selectedFile.value || !selectedAmbassadorId.value) return
+  if (!selectedFile.value) return
   uploadError.value = null
   parsing.value     = true
   try {
     const fd = new FormData()
     fd.append('file', selectedFile.value)
-    fd.append('ambassador_id', selectedAmbassadorId.value)
 
     const res  = await fetch(`${config.public.apiBase}/sales/import/parse`, {
       method:  'POST',
@@ -324,6 +327,7 @@ async function doParse() {
       // existing_sale rows default to skip, requiring explicit user decision.
       decision: (r.duplicate_in_file || r.existing_sale !== null) ? 'skip' : 'create',
       editing:  false,
+      ambassador_id: '',
     }))
     parseErrors.value = parsed.errors ?? []
     stage.value = 'preview'
@@ -347,7 +351,8 @@ const typeOpts = [
 ]
 
 const columns = [
-  { key: 'receipt',  label: 'Receipt'       },
+  { key: 'receipt',    label: 'Receipt'       },
+  { key: 'ambassador', label: 'Ambassador'    },
   { key: 'date',     label: 'Date'          },
   { key: 'type',     label: 'Type'          },
   { key: 'table',    label: 'Table #'       },
@@ -363,11 +368,22 @@ function isDupLocked(row: ImportRow)  {
   return row.existing_sale !== null && row.existing_sale.status !== 'draft'
 }
 
+/** Row will be sent as create/overwrite (needs ambassador before commit). */
+function rowNeedsAmbassador(row: ImportRow): boolean {
+  if (row.duplicate_in_file) return false
+  if (row.decision === 'skip') return false
+  return true
+}
+
 /* Summary counts */
 const summaryDuplicates = computed(() => rows.value.filter(isDup).length)
 const summaryReady      = computed(() => rows.value.filter(r => !isDup(r) && !r.duplicate_in_file).length)
 const importCount       = computed(() =>
   rows.value.filter(r => !r.duplicate_in_file && r.decision !== 'skip').length,
+)
+
+const missingAmbassadorOnImportRows = computed(() =>
+  rows.value.some(r => rowNeedsAmbassador(r) && (r.ambassador_id === '' || Number(r.ambassador_id) <= 0)),
 )
 
 /* Row badge */
@@ -403,6 +419,8 @@ function getRowClass(rawRow: unknown): string | undefined {
   if (isDupDraft(row) && row.decision !== 'skip' && row.decision !== 'overwrite')
                                              return 'bg-amber-50'
   if (row.decision === 'skip')              return 'opacity-40'
+  if (rowNeedsAmbassador(row) && (row.ambassador_id === '' || Number(row.ambassador_id) <= 0))
+                                            return 'ring-1 ring-amber-200 bg-amber-50/40'
   return undefined
 }
 
@@ -422,14 +440,20 @@ async function doCommit() {
   try {
     const decisions = rows.value
       .filter(r => !r.duplicate_in_file)
-      .map(r => ({
-        action:       r.decision,
-        receipt:      r.receipt,
-        date:         r.date,
-        sale_type:    r.sale_type,
-        table_number: r.table_number,
-        gross_amount: r.gross_amount,
-      }))
+      .map((r) => {
+        const base = {
+          action:       r.decision,
+          receipt:      r.receipt,
+          date:         r.date,
+          sale_type:    r.sale_type,
+          table_number: r.table_number,
+          gross_amount: r.gross_amount,
+        }
+        if (r.decision === 'skip') {
+          return base
+        }
+        return { ...base, ambassador_id: Number(r.ambassador_id) }
+      })
 
     const res  = await fetch(`${config.public.apiBase}/sales/import/commit`, {
       method:  'POST',
@@ -437,10 +461,7 @@ async function doCommit() {
         'Content-Type': 'application/json',
         Authorization:  `Bearer ${auth.token}`,
       },
-      body: JSON.stringify({
-        ambassador_id: Number(selectedAmbassadorId.value),
-        decisions,
-      }),
+      body: JSON.stringify({ decisions }),
     })
     const json = await res.json()
     if (!res.ok) throw new Error(json.message ?? 'Import failed.')

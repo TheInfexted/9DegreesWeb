@@ -156,11 +156,7 @@ class SaleController extends BaseApiController
             if (!$file) {
                 return $this->badRequest('PDF file is required.');
             }
-            $ambassadorId = (int) $this->request->getPost('ambassador_id');
-            if ($ambassadorId <= 0) {
-                return $this->badRequest('ambassador_id is required.');
-            }
-            return $this->ok($this->saleImportService->parsePdf($file, $ambassadorId));
+            return $this->ok($this->saleImportService->parsePdf($file));
         } catch (\RuntimeException $e) {
             return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e, 400));
         }
@@ -169,18 +165,14 @@ class SaleController extends BaseApiController
     public function commitImport(): \CodeIgniter\HTTP\ResponseInterface
     {
         try {
-            $body         = $this->json();
-            $ambassadorId = (int) ($body['ambassador_id'] ?? 0);
-            if ($ambassadorId <= 0) {
-                return $this->badRequest('ambassador_id is required.');
-            }
+            $body      = $this->json();
             $decisions = $body['decisions'] ?? null;
             if (!is_array($decisions) || $decisions === []) {
                 return $this->badRequest('decisions must be a non-empty array.');
             }
             $createdBy = $this->currentUser()->user_id;
 
-            return $this->ok($this->saleImportService->commit($decisions, $ambassadorId, $createdBy));
+            return $this->ok($this->saleImportService->commit($decisions, $createdBy));
         } catch (\RuntimeException $e) {
             return $this->respond(['message' => $e->getMessage()], $this->exceptionHttpStatus($e));
         }

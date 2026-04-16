@@ -111,7 +111,7 @@ class SalesImportTest extends CIUnitTestCase
 
     public function test_parse_extracts_36_table_rows(): void
     {
-        $result = (new SaleImportService())->parsePdf($this->uploadedFixture(), $this->ambassadorId);
+        $result = (new SaleImportService())->parsePdf($this->uploadedFixture());
 
         $this->assertCount(36, $result['rows']);
         $this->assertSame(36, $result['summary']['total']);
@@ -144,7 +144,7 @@ class SalesImportTest extends CIUnitTestCase
                 'remarks'       => 'Receipt: A00101202602030006',
             ]);
 
-        $result = (new SaleImportService())->parsePdf($this->uploadedFixture(), $this->ambassadorId);
+        $result = (new SaleImportService())->parsePdf($this->uploadedFixture());
 
         $matching = array_values(array_filter(
             $result['rows'],
@@ -160,21 +160,25 @@ class SalesImportTest extends CIUnitTestCase
     public function test_commit_creates_drafts(): void
     {
         $service    = new SaleImportService();
-        $parsed     = $service->parsePdf($this->uploadedFixture(), $this->ambassadorId);
-        $decisions  = array_map(static fn(array $r): array => [
-            'action'       => 'create',
-            'receipt'      => $r['receipt'],
-            'date'         => $r['date'],
-            'sale_type'    => $r['sale_type'],
-            'table_number' => $r['table_number'],
-            'gross_amount' => $r['gross_amount'],
-        ], $parsed['rows']);
+        $parsed     = $service->parsePdf($this->uploadedFixture());
+        $aid        = $this->ambassadorId;
+        $decisions  = array_map(static function (array $r) use ($aid): array {
+            return [
+                'action'        => 'create',
+                'ambassador_id' => $aid,
+                'receipt'       => $r['receipt'],
+                'date'          => $r['date'],
+                'sale_type'     => $r['sale_type'],
+                'table_number'  => $r['table_number'],
+                'gross_amount'  => $r['gross_amount'],
+            ];
+        }, $parsed['rows']);
 
         $owner   = json_decode($this->post('/api/v1/auth/login', ['username' => 'johnny', 'password' => 'password'])->getJSON(), true);
         $userId  = $owner['user']['id'] ?? null;
         $this->assertNotNull($userId);
 
-        $result = $service->commit($decisions, $this->ambassadorId, (int) $userId);
+        $result = $service->commit($decisions, (int) $userId);
 
         $this->assertSame(36, $result['created']);
         $this->assertSame(0, $result['updated']);
@@ -205,14 +209,15 @@ class SalesImportTest extends CIUnitTestCase
 
         $result = (new SaleImportService())->commit([
             [
-                'action'       => 'overwrite',
-                'receipt'      => 'A00101202602030006',
-                'date'         => '2026-02-02',
-                'sale_type'    => 'Table',
-                'table_number' => 'L10',
-                'gross_amount' => 6028.00,
+                'action'        => 'overwrite',
+                'ambassador_id' => $this->ambassadorId,
+                'receipt'       => 'A00101202602030006',
+                'date'          => '2026-02-02',
+                'sale_type'     => 'Table',
+                'table_number'  => 'L10',
+                'gross_amount'  => 6028.00,
             ],
-        ], $this->ambassadorId, $userId);
+        ], $userId);
 
         $this->assertSame(0, $result['created']);
         $this->assertSame(1, $result['updated']);
@@ -246,14 +251,15 @@ class SalesImportTest extends CIUnitTestCase
 
         $result = (new SaleImportService())->commit([
             [
-                'action'       => 'overwrite',
-                'receipt'      => 'A00101202602030006',
-                'date'         => '2026-02-02',
-                'sale_type'    => 'Table',
-                'table_number' => 'L99',
-                'gross_amount' => 9999.00,
+                'action'        => 'overwrite',
+                'ambassador_id' => $this->ambassadorId,
+                'receipt'       => 'A00101202602030006',
+                'date'          => '2026-02-02',
+                'sale_type'     => 'Table',
+                'table_number'  => 'L99',
+                'gross_amount'  => 9999.00,
             ],
-        ], $this->ambassadorId, $userId);
+        ], $userId);
 
         $this->assertSame(0, $result['updated']);
         $this->assertCount(1, $result['failed']);
@@ -275,7 +281,7 @@ class SalesImportTest extends CIUnitTestCase
         $result = (new SaleImportService())->commit([
             ['action' => 'skip', 'receipt' => 'A0001'],
             ['action' => 'skip', 'receipt' => 'A0002'],
-        ], $this->ambassadorId, $userId);
+        ], $userId);
 
         $this->assertSame(0, $result['created']);
         $this->assertSame(0, $result['updated']);
@@ -294,14 +300,7 @@ class SalesImportTest extends CIUnitTestCase
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Unsupported file type');
-        (new SaleImportService())->parsePdf($upload, $this->ambassadorId);
-    }
-
-    public function test_parse_rejects_unknown_ambassador(): void
-    {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Ambassador not found');
-        (new SaleImportService())->parsePdf($this->uploadedFixture(), 999999);
+        (new SaleImportService())->parsePdf($upload);
     }
 
     public function test_commit_overwrite_fails_when_receipt_not_found(): void
@@ -311,14 +310,15 @@ class SalesImportTest extends CIUnitTestCase
 
         $result = (new SaleImportService())->commit([
             [
-                'action'       => 'overwrite',
-                'receipt'      => 'RECEIPT-DOES-NOT-EXIST',
-                'date'         => '2026-02-02',
-                'sale_type'    => 'Table',
-                'table_number' => 'K01',
-                'gross_amount' => 100.00,
+                'action'        => 'overwrite',
+                'ambassador_id' => $this->ambassadorId,
+                'receipt'       => 'RECEIPT-DOES-NOT-EXIST',
+                'date'          => '2026-02-02',
+                'sale_type'     => 'Table',
+                'table_number'  => 'K01',
+                'gross_amount'  => 100.00,
             ],
-        ], $this->ambassadorId, $userId);
+        ], $userId);
 
         $this->assertSame(0, $result['created']);
         $this->assertSame(0, $result['updated']);
@@ -334,15 +334,25 @@ class SalesImportTest extends CIUnitTestCase
     // because the test runner does not execute route filters. JWT auth is shared
     // infrastructure already relied on by every other protected endpoint in the suite.
 
-    public function test_commit_endpoint_rejects_missing_ambassador_id(): void
+    public function test_commit_endpoint_fails_create_row_missing_ambassador_id(): void
     {
         $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
             ->withBodyFormat('json')
             ->post('/api/v1/sales/import/commit', [
-                'decisions' => [['action' => 'skip', 'receipt' => 'X']],
+                'decisions' => [[
+                    'action'       => 'create',
+                    'receipt'      => 'A00101202602030006',
+                    'date'         => '2026-02-02',
+                    'sale_type'    => 'Table',
+                    'table_number' => 'L10',
+                    'gross_amount' => 6028.00,
+                ]],
             ]);
-        $result->assertStatus(400);
-        $this->assertStringContainsString('ambassador_id', json_decode($result->getJSON(), true)['message']);
+        $result->assertStatus(200);
+        $data = json_decode($result->getJSON(), true)['data'];
+        $this->assertSame(0, $data['created']);
+        $this->assertCount(1, $data['failed']);
+        $this->assertStringContainsString('ambassador_id', $data['failed'][0]['message']);
     }
 
     public function test_commit_endpoint_rejects_empty_decisions(): void
@@ -350,8 +360,7 @@ class SalesImportTest extends CIUnitTestCase
         $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
             ->withBodyFormat('json')
             ->post('/api/v1/sales/import/commit', [
-                'ambassador_id' => $this->ambassadorId,
-                'decisions'     => [],
+                'decisions' => [],
             ]);
         $result->assertStatus(400);
         $this->assertStringContainsString('decisions', json_decode($result->getJSON(), true)['message']);
@@ -361,20 +370,20 @@ class SalesImportTest extends CIUnitTestCase
     {
         $decisions = [
             [
-                'action'       => 'create',
-                'receipt'      => 'A00101202602030006',
-                'date'         => '2026-02-02',
-                'sale_type'    => 'Table',
-                'table_number' => 'L10',
-                'gross_amount' => 6028.00,
+                'action'        => 'create',
+                'ambassador_id' => $this->ambassadorId,
+                'receipt'       => 'A00101202602030006',
+                'date'          => '2026-02-02',
+                'sale_type'     => 'Table',
+                'table_number'  => 'L10',
+                'gross_amount'  => 6028.00,
             ],
         ];
 
         $result = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
             ->withBodyFormat('json')
             ->post('/api/v1/sales/import/commit', [
-                'ambassador_id' => $this->ambassadorId,
-                'decisions'     => $decisions,
+                'decisions' => $decisions,
             ]);
 
         $result->assertStatus(200);

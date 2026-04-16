@@ -28,14 +28,9 @@ class SaleImportService
      *   summary: array{total:int, ready:int, duplicates:int, errors:int}
      * }
      */
-    public function parsePdf(UploadedFile $file, int $ambassadorId): array
+    public function parsePdf(UploadedFile $file): array
     {
         $this->validateUpload($file);
-
-        $ambassador = $this->ambassadorRepo->findById($ambassadorId);
-        if (!$ambassador) {
-            throw new \RuntimeException('Ambassador not found.', 404);
-        }
 
         $text  = (new Parser())->parseFile($file->getTempName())->getText();
         $lines = preg_split('/\r?\n/', $text) ?: [];
@@ -116,18 +111,11 @@ class SaleImportService
      * Apply user decisions to commit the import: create new draft sales, overwrite
      * existing draft sales, or skip rows. Confirmed/voided sales are never overwritten.
      *
-     * @param  list<array<string,mixed>> $decisions
+     * @param  list<array<string,mixed>> $decisions Each create/overwrite row must include ambassador_id.
      * @return array{created:int, updated:int, skipped:int, failed:list<array{receipt:string, message:string}>}
      */
-    public function commit(array $decisions, int $ambassadorId, int $createdBy): array
+    public function commit(array $decisions, int $createdBy): array
     {
-        if ($ambassadorId <= 0) {
-            throw new \RuntimeException('ambassador_id is required.', 422);
-        }
-        $ambassador = $this->ambassadorRepo->findById($ambassadorId);
-        if (!$ambassador) {
-            throw new \RuntimeException('Ambassador not found.', 404);
-        }
         if (!is_array($decisions) || $decisions === []) {
             throw new \RuntimeException('No decisions submitted.', 422);
         }
@@ -136,6 +124,8 @@ class SaleImportService
         $updated = 0;
         $skipped = 0;
         $failed  = [];
+
+        $ambassadorOk = [];
 
         // Pre-fetch all existing sales for overwrite rows in one query (avoids N+1).
         $overwriteReceipts = [];
@@ -163,7 +153,26 @@ class SaleImportService
                     continue;
                 }
 
-                $payload = $this->buildSalePayload($d, $ambassadorId, $receipt);
+                $rowAmbassadorId = (int) ($d['ambassador_id'] ?? 0);
+                if ($rowAmbassadorId <= 0) {
+                    $failed[] = [
+                        'receipt' => $receipt,
+                        'message' => 'ambassador_id is required for each imported row.',
+                    ];
+                    continue;
+                }
+                if (!array_key_exists($rowAmbassadorId, $ambassadorOk)) {
+                    $ambassadorOk[$rowAmbassadorId] = (bool) $this->ambassadorRepo->findById($rowAmbassadorId);
+                }
+                if (!$ambassadorOk[$rowAmbassadorId]) {
+                    $failed[] = [
+                        'receipt' => $receipt,
+                        'message' => 'Ambassador not found.',
+                    ];
+                    continue;
+                }
+
+                $payload = $this->buildSalePayload($d, $rowAmbassadorId, $receipt);
 
                 if ($action === 'create') {
                     $this->saleService->create($payload, $createdBy);
