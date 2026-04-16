@@ -257,17 +257,16 @@ class SaleImportService
             return null;
         }
 
+        // Table code follows the order name for both sale types. PDF text often concatenates
+        // the code with "RM" (no space), e.g. "V666RM 900.00"; greedy [A-Z0-9]+ would swallow "RM".
+        $afterName = preg_replace('/^[A-Za-z][A-Za-z\s.\'-]*(?:\([^)]*\))?/', '', $rest);
         $tableNumber = null;
-        $saleType    = 'BGO';
-
-        if (!$isBgo) {
-            // Table sale: extract table number from after the order name.
-            $afterName = preg_replace('/^[A-Za-z][A-Za-z\s.\'-]*(?:\([^)]*\))?/', '', $rest);
-            if (preg_match('/^([A-Z0-9]+)(?:\t|\s|RM)/', (string) $afterName, $tm)) {
-                $tableNumber = $tm[1];
-                $saleType    = 'Table';
-            }
+        if (preg_match('/^([A-Z0-9]+?)(?=RM|\s|\t)/', (string) $afterName, $tm)) {
+            $tableNumber = $tm[1];
         }
+
+        // Non-BGO without a parseable table token: keep legacy behaviour (do not force Table).
+        $saleType = $isBgo ? 'BGO' : ($tableNumber !== null ? 'Table' : 'BGO');
 
         return [
             'receipt'      => $receipt,

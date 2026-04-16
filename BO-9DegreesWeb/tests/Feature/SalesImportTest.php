@@ -80,6 +80,35 @@ class SalesImportTest extends CIUnitTestCase
         };
     }
 
+    public function test_parse_row_line_extracts_table_number_for_bgo_when_spaced_before_rate(): void
+    {
+        $line = '2 Feb 20262026-02-03 12:23 AMA00101202602030006Johnny(PP)L10 RM 1,500.00 10.00%';
+
+        $m = new \ReflectionMethod(SaleImportService::class, 'parseRowLine');
+        $m->setAccessible(true);
+        $row = $m->invoke(new SaleImportService(), $line);
+
+        $this->assertNotNull($row);
+        $this->assertSame('BGO', $row['sale_type']);
+        $this->assertSame('L10', $row['table_number']);
+        $this->assertEqualsWithDelta(1500.00, $row['gross_amount'], 0.01);
+    }
+
+    public function test_parse_row_line_bgo_does_not_include_rm_in_table_when_concatenated_to_amount(): void
+    {
+        // BGO: table column runs straight into "RM" with no space — "RM" must not be part of table #.
+        $line = '28 Mar 20262026-03-28 12:23 AMA22111202603293332Johnny(PP)V666RM 900.00 10.00%';
+
+        $m = new \ReflectionMethod(SaleImportService::class, 'parseRowLine');
+        $m->setAccessible(true);
+        $row = $m->invoke(new SaleImportService(), $line);
+
+        $this->assertNotNull($row);
+        $this->assertSame('BGO', $row['sale_type']);
+        $this->assertSame('V666', $row['table_number']);
+        $this->assertEqualsWithDelta(900.00, $row['gross_amount'], 0.01);
+    }
+
     public function test_parse_extracts_36_table_rows(): void
     {
         $result = (new SaleImportService())->parsePdf($this->uploadedFixture(), $this->ambassadorId);
