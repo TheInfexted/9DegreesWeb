@@ -242,9 +242,14 @@ class SaleImportService
             return null;
         }
 
-        // The amount-ordered RM value is the one immediately followed by the rate%.
-        // Format: ...RM <amt><rate>% RM <comm>
-        if (!preg_match('/RM\s*([\d,]+\.\d{2})\d+\.\d{2}%/', $rest, $am)) {
+        // BGO rows: amount sits in the BGO SALES column; the adjacent AMT ORD column is
+        // blank, so the PDF text has a space between the amount and the rate.
+        // Table rows: amount sits in AMT ORD which directly precedes COMM %, so they
+        // concatenate with no whitespace.
+        $isBgo = (bool) preg_match('/RM\s*[\d,]+\.\d{2}\s+\d+\.\d{2}%/', $rest);
+
+        // The gross amount is the RM value immediately before (or with a space before) the rate%.
+        if (!preg_match('/RM\s*([\d,]+\.\d{2})\s*\d+\.\d{2}%/', $rest, $am)) {
             return null;
         }
         $gross = (float) str_replace(',', '', $am[1]);
@@ -252,14 +257,16 @@ class SaleImportService
             return null;
         }
 
-        // Order name (e.g. "Johnny(PP)") at the start of $rest. Strip it to find the table.
-        $afterName = preg_replace('/^[A-Za-z][A-Za-z\s.\'-]*(?:\([^)]*\))?/', '', $rest);
-
         $tableNumber = null;
         $saleType    = 'BGO';
-        if (preg_match('/^([A-Z0-9]+)(?:\t|\s|RM)/', (string) $afterName, $tm)) {
-            $tableNumber = $tm[1];
-            $saleType    = 'Table';
+
+        if (!$isBgo) {
+            // Table sale: extract table number from after the order name.
+            $afterName = preg_replace('/^[A-Za-z][A-Za-z\s.\'-]*(?:\([^)]*\))?/', '', $rest);
+            if (preg_match('/^([A-Z0-9]+)(?:\t|\s|RM)/', (string) $afterName, $tm)) {
+                $tableNumber = $tm[1];
+                $saleType    = 'Table';
+            }
         }
 
         return [
