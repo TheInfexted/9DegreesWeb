@@ -105,7 +105,12 @@
           <span class="text-gray-400">Bank</span>
           <span class="text-ink">{{ detailRow.bank_name || '—' }}</span>
           <span class="text-gray-400">Account No.</span>
-          <span class="text-ink font-mono">{{ detailRow.bank_account_number || '—' }}</span>
+          <span
+            class="text-ink font-mono"
+            :class="detailRow.bank_account_number ? 'cursor-pointer select-all hover:text-blue-600 transition-colors' : ''"
+            :title="detailRow.bank_account_number ? 'Click to copy' : ''"
+            @click="detailRow.bank_account_number && copyAccountNumber(detailRow.bank_account_number)"
+          >{{ detailRow.bank_account_number || '—' }}{{ copiedAccount ? ' ✓' : '' }}</span>
           <span class="text-gray-400">Account Owner</span>
           <span class="text-ink">{{ detailRow.bank_owner_name || '—' }}</span>
         </div>
@@ -127,6 +132,13 @@ const showReceipts  = ref(false)
 const receiptRow    = ref<any>(null)
 const showDetail    = ref(false)
 const detailRow     = ref<any>(null)
+const copiedAccount = ref(false)
+
+function copyAccountNumber(value: string) {
+  navigator.clipboard.writeText(value)
+  copiedAccount.value = true
+  setTimeout(() => { copiedAccount.value = false }, 2000)
+}
 const filterPaid  = ref('')
 const listParams  = ref({ month: '', page: 1, per_page: 25 })
 const config      = useRuntimeConfig()
@@ -288,6 +300,7 @@ function receiptCount(row: any): number {
 
 function openDetail(row: any) {
   detailRow.value  = row
+  copiedAccount.value = false
   showDetail.value = true
 }
 </script>
