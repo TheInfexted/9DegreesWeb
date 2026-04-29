@@ -38,6 +38,7 @@ class Cors extends BaseConfig
             'http://localhost:3000',
             'https://ninedsales.com',
             'https://www.ninedsales.com',
+            'https://404.ninedsales.com',
         ],
 
         /**
