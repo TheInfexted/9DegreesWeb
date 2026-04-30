@@ -1,40 +1,51 @@
 <template>
-  <AppModal :model-value="modelValue" title="Create Payout" size="md" @update:model-value="$emit('update:modelValue', $event)">
+  <AppModal :model-value="modelValue" title="Create payout" size="md" @update:model-value="$emit('update:modelValue', $event)">
     <div class="space-y-4">
       <div>
         <label class="field-label">Month</label>
         <AppSelect v-model="selectedMonth" :options="monthOpts" placeholder="Select month" />
       </div>
       <div v-if="selectedMonth">
-        <label class="field-label">Ambassadors ({{ selected.size }} selected)</label>
-        <p class="text-[11px] text-gray-500 mb-2">Only ambassadors with confirmed sales in this month. Johnny and Unassigned Sales are excluded.</p>
-        <div class="border border-[#E8E8EC] rounded-xl overflow-hidden max-h-64 overflow-y-auto">
-          <div v-if="loadingMonth" class="px-4 py-6 text-center text-[13px] text-gray-400">Loading…</div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="field-label !mb-0">Ambassadors</label>
+          <span class="text-[11px] text-text-muted tabular">{{ selected.size }} of {{ eligibleAmbassadors.length }} selected</span>
+        </div>
+        <p class="text-[11.5px] text-text-muted mb-2">Only ambassadors with confirmed sales in this month. Johnny and Unassigned Sales are excluded.</p>
+        <div class="border border-border rounded-lg overflow-hidden max-h-64 overflow-y-auto bg-white">
+          <div v-if="loadingMonth" class="px-4 py-6 space-y-2">
+            <div v-for="n in 3" :key="n" class="flex items-center gap-3">
+              <div class="skeleton w-4 h-4 rounded" />
+              <div class="flex-1 space-y-1.5">
+                <div class="skeleton h-3" style="width:55%" />
+                <div class="skeleton h-2.5" style="width:30%" />
+              </div>
+            </div>
+          </div>
           <template v-else>
             <label
               v-if="eligibleAmbassadors.length"
-              class="flex items-center gap-3 px-4 py-2.5 bg-[#FAFAFA] border-b border-[#F0F0F0] cursor-pointer hover:bg-gray-50"
+              class="flex items-center gap-3 px-4 py-2.5 bg-border-soft/50 border-b border-border-soft cursor-pointer hover:bg-border-soft transition-colors"
             >
               <input
                 type="checkbox"
-                class="accent-[#00C4CC]"
+                class="accent-cyan w-4 h-4"
                 :checked="allEligibleSelected"
                 @change="toggleSelectAllEligible"
               />
-              <span class="text-[13px] font-medium text-ink">Select all</span>
+              <span class="text-[12.5px] font-medium text-ink">Select all</span>
             </label>
             <label
               v-for="amb in eligibleAmbassadors"
               :key="amb.id"
-              class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-[#F0F0F0] last:border-b-0"
+              class="flex items-center gap-3 px-4 py-3 hover:bg-border-soft/40 cursor-pointer border-b border-border-soft last:border-b-0 transition-colors"
             >
-              <input type="checkbox" :value="amb.id" v-model="selectedIds" class="accent-[#00C4CC]" />
-              <div class="flex-1">
-                <div class="text-[13px] font-medium text-ink">{{ amb.name }}</div>
-                <div class="text-[11px] text-gray-400">{{ amb.team_name ?? 'No team' }}</div>
+              <input type="checkbox" :value="amb.id" v-model="selectedIds" class="accent-cyan w-4 h-4" />
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-medium text-ink tracking-[-0.005em]">{{ amb.name }}</div>
+                <div class="text-[11px] text-text-muted">{{ amb.team_name ?? 'No team' }}</div>
               </div>
             </label>
-            <div v-if="!eligibleAmbassadors.length" class="px-4 py-6 text-center text-[13px] text-gray-400">
+            <div v-if="!eligibleAmbassadors.length" class="px-4 py-8 text-center text-[12.5px] text-text-muted">
               <template v-if="!withSalesAmbassadors.length">No confirmed sales for this month — nothing to pay out yet.</template>
               <template v-else>Everyone with sales this month already has a payout record.</template>
             </div>
@@ -48,7 +59,7 @@
         class="btn-primary"
         :disabled="!selected.size || loading"
         @click="handleCreate"
-      >{{ loading ? 'Creating…' : `Create ${selected.size} Payout(s)` }}</button>
+      >{{ loading ? 'Creating…' : `Create ${selected.size} payout${selected.size === 1 ? '' : 's'}` }}</button>
     </template>
   </AppModal>
 </template>

@@ -3,3 +3,5 @@
 CLAUDE.md
 *.sql
 *.pdf
+/.playwright-mcp
+login-redesigned.png

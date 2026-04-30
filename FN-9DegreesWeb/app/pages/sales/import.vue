@@ -2,43 +2,59 @@
   <NuxtLayout>
     <!-- Stage 1: Upload -->
     <template v-if="stage === 'upload'">
-      <div class="max-w-lg mx-auto">
+      <div class="max-w-xl mx-auto">
         <div class="mb-6">
-          <h1 class="text-[20px] font-bold text-ink">Import Sales from PDF</h1>
-          <p class="text-[13px] text-gray-500 mt-1">
-            Upload an agent commission report PDF. Rows will be created as draft sales.
+          <p class="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text-muted mb-1">Sales · Import</p>
+          <h1 class="text-[22px] font-semibold text-ink tracking-tightest">Import sales from PDF</h1>
+          <p class="text-[13px] text-text-soft mt-1.5 max-w-prose">
+            Upload an agent commission report PDF. Each parsed row becomes a draft sale you can review before committing.
           </p>
         </div>
 
-        <div class="bg-white border border-[#E8E8EC] rounded-2xl p-6 shadow-sm space-y-5">
+        <div class="surface p-6 space-y-5">
           <div>
-            <label class="field-label">PDF File</label>
+            <label class="field-label">PDF file</label>
             <label
-              class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#E8E8EC] rounded-xl p-8 cursor-pointer hover:border-[#00C4CC] transition-colors"
-              :class="{ 'border-[#00C4CC] bg-[#f0fdfd]': selectedFile }"
+              class="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-9 cursor-pointer transition-all duration-150"
+              :class="selectedFile
+                ? 'border-cyan/60 bg-cyan-tint/40'
+                : 'border-border hover:border-cyan/40 hover:bg-border-soft/40'"
               @dragover.prevent
               @drop.prevent="onDrop"
             >
               <input ref="fileInputRef" type="file" accept="application/pdf,.pdf" class="hidden" @change="onFileChange" />
-              <span v-if="!selectedFile" class="text-[13px] text-gray-400">Click or drag a PDF here</span>
+              <template v-if="!selectedFile">
+                <div class="w-10 h-10 rounded-lg bg-border-soft flex items-center justify-center text-text-muted">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13l3-3m0 0l3 3m-3-3v12M5 8a4 4 0 014-4h6.5a4 4 0 014 4v8a4 4 0 01-4 4H9a4 4 0 01-4-4V8z"/></svg>
+                </div>
+                <p class="text-[13px] text-text font-medium">Click or drag a PDF here</p>
+                <p class="text-[11.5px] text-text-muted">Agent commission report only</p>
+              </template>
               <template v-else>
-                <span class="text-[13px] font-medium text-ink">{{ selectedFile.name }}</span>
-                <span class="text-[11px] text-gray-400">{{ formatFileSize(selectedFile.size) }}</span>
+                <div class="w-10 h-10 rounded-lg bg-cyan-tint flex items-center justify-center text-cyan-dark ring-1 ring-cyan/20">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M9 4h6a2 2 0 012 2v14a2 2 0 01-2 2H9a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
+                </div>
+                <p class="text-[13px] font-medium text-ink">{{ selectedFile.name }}</p>
+                <p class="text-[11.5px] text-text-muted tabular">{{ formatFileSize(selectedFile.size) }}</p>
               </template>
             </label>
           </div>
 
-          <p v-if="uploadError" class="text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{{ uploadError }}</p>
+          <p
+            v-if="uploadError"
+            class="text-[12px] text-[#B83227] bg-[#FDF2F1] ring-1 ring-inset ring-[#F1D8D5] rounded-md px-3 py-2"
+          >{{ uploadError }}</p>
 
-          <div class="flex justify-end gap-3 pt-2">
+          <div class="flex justify-end gap-2 pt-1">
             <NuxtLink to="/sales" class="btn-secondary text-[13px]">Cancel</NuxtLink>
             <button
               type="button"
-              class="btn-primary text-[13px]"
+              class="btn-primary text-[13px] inline-flex items-center gap-1.5"
               :disabled="!selectedFile || parsing"
               @click="doParse"
             >
-              {{ parsing ? 'Parsing…' : 'Parse PDF' }}
+              <span v-if="parsing" class="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden="true" />
+              {{ parsing ? 'Parsing' : 'Parse PDF' }}
             </button>
           </div>
         </div>
@@ -47,39 +63,45 @@
 
     <!-- Stage 2: Preview -->
     <template v-else>
-      <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 class="text-[20px] font-bold text-ink">Review Import</h1>
-          <p class="text-[13px] text-gray-500">
-            Choose which ambassador each imported sale belongs to. Rows set to Skip do not need an ambassador.
+          <p class="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text-muted mb-1">Sales · Import · Review</p>
+          <h1 class="text-[20px] font-semibold text-ink tracking-tightest">Review import</h1>
+          <p class="text-[13px] text-text-soft mt-1">
+            Choose which ambassador each imported sale belongs to. Rows set to Skip don't need an ambassador.
           </p>
         </div>
         <div class="flex gap-2 shrink-0">
           <button type="button" class="btn-secondary text-[13px]" @click="stage = 'upload'">Back</button>
           <button
             type="button"
-            class="btn-primary text-[13px]"
+            class="btn-primary text-[13px] inline-flex items-center gap-1.5"
             :disabled="importCount === 0 || committing || missingAmbassadorOnImportRows"
             :title="missingAmbassadorOnImportRows ? 'Select an ambassador for every row you are importing.' : undefined"
             @click="doCommit"
           >
-            {{ committing ? 'Importing…' : `Import ${importCount} row${importCount !== 1 ? 's' : ''}` }}
+            <span v-if="committing" class="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden="true" />
+            {{ committing ? 'Importing' : `Import ${importCount} row${importCount !== 1 ? 's' : ''}` }}
           </button>
         </div>
       </div>
 
       <!-- Summary cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <AppCard label="Ready" :value="summaryReady" />
-        <AppCard label="Duplicates" :value="summaryDuplicates" />
-        <AppCard label="File errors" :value="parseErrors.length" />
+        <AppCard label="Ready" :value="summaryReady" :accent="false" />
+        <AppCard label="Duplicates" :value="summaryDuplicates" :accent="false" />
+        <AppCard label="File errors" :value="parseErrors.length" :accent="false" />
         <AppCard label="Will import" :value="importCount" />
       </div>
 
       <!-- Bulk dup actions -->
-      <div v-if="summaryDuplicates > 0" class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p class="text-[12px] text-amber-800">
-          {{ summaryDuplicates }} row{{ summaryDuplicates !== 1 ? 's' : '' }} matched an existing receipt. Choose how to handle:
+      <div
+        v-if="summaryDuplicates > 0"
+        class="bg-[#FDF6E7] ring-1 ring-inset ring-[#F0DCB1] rounded-lg px-4 py-3 mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p class="text-[12px] text-[#9C6611] inline-flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 4h.01M5.062 19h13.876c1.54 0 2.502-1.667 1.732-3L13.732 5c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.722 3z"/></svg>
+          {{ summaryDuplicates }} row{{ summaryDuplicates !== 1 ? 's' : '' }} matched an existing receipt. Choose how to handle them:
         </p>
         <div class="flex gap-2 shrink-0">
           <button type="button" class="btn-secondary text-[12px] py-1.5 px-3" @click="bulkDupAction('skip')">Skip all</button>
@@ -88,10 +110,16 @@
       </div>
 
       <!-- Parse errors -->
-      <div v-if="parseErrors.length" class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
-        <p class="text-[12px] font-semibold text-red-700 mb-2">{{ parseErrors.length }} row{{ parseErrors.length !== 1 ? 's' : '' }} could not be parsed:</p>
+      <div
+        v-if="parseErrors.length"
+        class="bg-[#FDF2F1] ring-1 ring-inset ring-[#F1D8D5] rounded-lg px-4 py-3 mb-4"
+      >
+        <p class="text-[12px] font-semibold text-[#B83227] mb-2 inline-flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          {{ parseErrors.length }} row{{ parseErrors.length !== 1 ? 's' : '' }} could not be parsed
+        </p>
         <ul class="space-y-1">
-          <li v-for="e in parseErrors" :key="e.line" class="text-[11px] text-red-600 font-mono truncate">
+          <li v-for="e in parseErrors" :key="e.line" class="text-[11px] text-[#B83227] font-mono truncate">
             Line {{ e.line }}: {{ e.text }} — {{ e.reason }}
           </li>
         </ul>
@@ -101,12 +129,9 @@
       <AppTable :columns="columns" :rows="rows" :get-row-class="getRowClass">
         <template #default="{ row: rawRow }">
           <template v-for="row in [rawRow as ImportRow]" :key="row.receipt">
-            <!-- Receipt (read-only) -->
-            <td class="px-4 py-2 text-[11px] font-mono text-gray-400 whitespace-nowrap max-w-[140px] truncate" :title="row.receipt">
+            <td class="px-4 py-2 text-[11px] font-mono text-text-muted whitespace-nowrap max-w-[140px] truncate" :title="row.receipt">
               {{ row.receipt }}
             </td>
-
-            <!-- Ambassador -->
             <td class="px-4 py-2 min-w-[160px]">
               <AppSelect
                 v-model="row.ambassador_id"
@@ -116,9 +141,7 @@
                 class="text-[12px] py-1"
               />
             </td>
-
-            <!-- Date -->
-            <td class="px-4 py-2 text-[12px] text-gray-700">
+            <td class="px-4 py-2 text-[12px] text-text tabular">
               <input
                 v-if="row.editing"
                 v-model="row.date"
@@ -127,8 +150,6 @@
               />
               <span v-else>{{ row.date }}</span>
             </td>
-
-            <!-- Sale type -->
             <td class="px-4 py-2 text-[12px]">
               <AppSelect
                 v-if="row.editing"
@@ -136,11 +157,9 @@
                 :options="typeOpts"
                 class="text-[12px] py-1"
               />
-              <span v-else class="text-gray-700">{{ row.sale_type }}</span>
+              <span v-else class="text-text">{{ row.sale_type }}</span>
             </td>
-
-            <!-- Table # -->
-            <td class="px-4 py-2 text-[12px] text-gray-700">
+            <td class="px-4 py-2 text-[12px] text-text tabular">
               <input
                 v-if="row.editing"
                 v-model="row.table_number"
@@ -150,9 +169,7 @@
               />
               <span v-else>{{ row.table_number || '—' }}</span>
             </td>
-
-            <!-- Gross -->
-            <td class="px-4 py-2 text-[12px] text-right font-semibold text-ink">
+            <td class="px-4 py-2 text-[12px] text-right font-medium text-ink tabular">
               <input
                 v-if="row.editing"
                 v-model.number="row.gross_amount"
@@ -163,58 +180,36 @@
               />
               <span v-else>{{ formatRM(row.gross_amount) }}</span>
             </td>
-
-            <!-- Status pill -->
             <td class="px-4 py-2">
               <AppBadge :variant="rowBadgeVariant(row)">{{ rowBadgeLabel(row) }}</AppBadge>
             </td>
-
-            <!-- Actions -->
             <td class="px-4 py-2">
               <div class="flex justify-end items-center gap-1">
-                <!-- Edit toggle -->
                 <template v-if="!row.editing">
-                  <button
-                    v-if="row.decision !== 'skip'"
-                    class="act-btn"
-                    title="Edit"
-                    @click="row.editing = true"
-                  >✎</button>
+                  <button v-if="row.decision !== 'skip'" class="act-btn" title="Edit" @click="row.editing = true">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.75a2.121 2.121 0 113 3L7 19.25l-4 1 1-4L16.5 3.75z"/></svg>
+                  </button>
                 </template>
                 <template v-else>
-                  <button class="act-btn text-[#007a80]" title="Done" @click="row.editing = false">✓</button>
+                  <button class="act-btn text-cyan-dark hover:bg-cyan-tint" title="Done" @click="row.editing = false">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  </button>
                 </template>
-
-                <!-- Dup-draft: Skip / Overwrite -->
                 <template v-if="isDupDraft(row)">
-                  <button
-                    v-if="row.decision !== 'skip'"
-                    class="act-btn text-gray-400"
-                    title="Skip this row"
-                    @click="row.decision = 'skip'"
-                  >⊘</button>
-                  <button
-                    v-if="row.decision !== 'overwrite'"
-                    class="act-btn text-[#007a80]"
-                    title="Overwrite existing draft"
-                    @click="row.decision = 'overwrite'"
-                  >⟳</button>
+                  <button v-if="row.decision !== 'skip'" class="act-btn" title="Skip this row" @click="row.decision = 'skip'">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                  </button>
+                  <button v-if="row.decision !== 'overwrite'" class="act-btn text-cyan-dark hover:bg-cyan-tint" title="Overwrite existing draft" @click="row.decision = 'overwrite'">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M5 9a8 8 0 0114-3m1 9a8 8 0 01-14 3"/></svg>
+                  </button>
                 </template>
-
-                <!-- Ready: toggle exclude -->
                 <template v-if="!isDup(row)">
-                  <button
-                    v-if="row.decision !== 'skip'"
-                    class="act-btn text-gray-400"
-                    title="Skip this row"
-                    @click="row.decision = 'skip'"
-                  >⊘</button>
-                  <button
-                    v-if="row.decision === 'skip'"
-                    class="act-btn text-[#007a80]"
-                    title="Include this row"
-                    @click="row.decision = 'create'"
-                  >+</button>
+                  <button v-if="row.decision !== 'skip'" class="act-btn" title="Skip this row" @click="row.decision = 'skip'">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                  </button>
+                  <button v-if="row.decision === 'skip'" class="act-btn text-cyan-dark hover:bg-cyan-tint" title="Include this row" @click="row.decision = 'create'">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+                  </button>
                 </template>
               </div>
             </td>
@@ -231,9 +226,6 @@ import { formatRM } from '~/utils/currency'
 
 definePageMeta({ middleware: 'auth' })
 
-/* ------------------------------------------------------------------ */
-/* Types                                                                */
-/* ------------------------------------------------------------------ */
 interface ExistingSale {
   id: number
   status: 'draft' | 'confirmed' | 'void'
@@ -247,10 +239,8 @@ interface ImportRow {
   gross_amount:     number
   duplicate_in_file: boolean
   existing_sale:    ExistingSale | null
-  // mutable preview state
   decision: 'create' | 'overwrite' | 'skip'
   editing:  boolean
-  /** Set on review; required for each row that will be created or overwritten. */
   ambassador_id: string
 }
 
@@ -260,14 +250,8 @@ interface ParseError {
   reason: string
 }
 
-/* ------------------------------------------------------------------ */
-/* Stage control                                                        */
-/* ------------------------------------------------------------------ */
 const stage = ref<'upload' | 'preview'>('upload')
 
-/* ------------------------------------------------------------------ */
-/* Stage 1 — upload                                                    */
-/* ------------------------------------------------------------------ */
 const { data: ambassadors } = useAPI('ambassadors', { status: 'active' })
 
 const selectedFile         = ref<File | null>(null)
@@ -298,9 +282,6 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-/* ------------------------------------------------------------------ */
-/* Stage 1 → 2: parse                                                  */
-/* ------------------------------------------------------------------ */
 const config = useRuntimeConfig()
 const auth   = useAuthStore()
 
@@ -323,8 +304,6 @@ async function doParse() {
     const parsed = json.data ?? json
     rows.value   = (parsed.rows as any[]).map(r => ({
       ...r,
-      // duplicate_in_file rows are always skipped — they cannot be imported.
-      // existing_sale rows default to skip, requiring explicit user decision.
       decision: (r.duplicate_in_file || r.existing_sale !== null) ? 'skip' : 'create',
       editing:  false,
       ambassador_id: '',
@@ -338,9 +317,6 @@ async function doParse() {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Stage 2 — preview                                                   */
-/* ------------------------------------------------------------------ */
 const rows:        ReturnType<typeof ref<ImportRow[]>> = ref([])
 const parseErrors  = ref<ParseError[]>([])
 const committing   = ref(false)
@@ -361,21 +337,18 @@ const columns = [
   { key: 'actions',  label: ''              },
 ]
 
-/* Helpers */
 function isDup(row: ImportRow)        { return row.existing_sale !== null }
 function isDupDraft(row: ImportRow)   { return row.existing_sale?.status === 'draft' }
 function isDupLocked(row: ImportRow)  {
   return row.existing_sale !== null && row.existing_sale.status !== 'draft'
 }
 
-/** Row will be sent as create/overwrite (needs ambassador before commit). */
 function rowNeedsAmbassador(row: ImportRow): boolean {
   if (row.duplicate_in_file) return false
   if (row.decision === 'skip') return false
   return true
 }
 
-/* Summary counts */
 const summaryDuplicates = computed(() => rows.value.filter(isDup).length)
 const summaryReady      = computed(() => rows.value.filter(r => !isDup(r) && !r.duplicate_in_file).length)
 const importCount       = computed(() =>
@@ -386,14 +359,13 @@ const missingAmbassadorOnImportRows = computed(() =>
   rows.value.some(r => rowNeedsAmbassador(r) && (r.ambassador_id === '' || Number(r.ambassador_id) <= 0)),
 )
 
-/* Row badge */
 function rowBadgeVariant(row: ImportRow): string {
   if (row.duplicate_in_file) return 'void'
   if (isDupLocked(row))      return 'void'
   if (isDupDraft(row)) {
     if (row.decision === 'skip')      return 'inactive'
     if (row.decision === 'overwrite') return 'confirmed'
-    return 'unpaid'  // amber — pending decision
+    return 'unpaid'
   }
   if (row.decision === 'skip') return 'inactive'
   return 'draft'
@@ -411,29 +383,26 @@ function rowBadgeLabel(row: ImportRow): string {
   return 'Ready'
 }
 
-/* Row coloring via getRowClass */
 function getRowClass(rawRow: unknown): string | undefined {
   const row = rawRow as ImportRow
-  if (row.duplicate_in_file)                return 'bg-red-50'
-  if (isDupLocked(row))                     return 'bg-red-50 opacity-60'
+  if (row.duplicate_in_file)                return 'bg-[#FDF2F1]'
+  if (isDupLocked(row))                     return 'bg-[#FDF2F1] opacity-60'
   if (isDupDraft(row) && row.decision !== 'skip' && row.decision !== 'overwrite')
-                                             return 'bg-amber-50'
+                                             return 'bg-[#FDF6E7]'
   if (row.decision === 'skip')              return 'opacity-40'
   if (rowNeedsAmbassador(row) && (row.ambassador_id === '' || Number(row.ambassador_id) <= 0))
-                                            return 'ring-1 ring-amber-200 bg-amber-50/40'
+                                            return 'ring-1 ring-inset ring-[#F0DCB1] bg-[#FDF6E7]/40'
   return undefined
 }
 
-/* Bulk actions */
 function bulkDupAction(action: 'skip' | 'overwrite') {
   for (const row of rows.value) {
     if (!isDup(row)) continue
-    if (action === 'overwrite' && isDupLocked(row)) continue // can't overwrite confirmed/void
+    if (action === 'overwrite' && isDupLocked(row)) continue
     row.decision = action
   }
 }
 
-/* Commit */
 async function doCommit() {
   if (importCount.value === 0) return
   committing.value = true

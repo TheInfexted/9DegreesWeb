@@ -1,11 +1,20 @@
 <template>
-  <div class="bg-white border border-[#E8E8EC] rounded-2xl p-4 lg:p-5 shadow-sm">
-    <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2">{{ label }}</div>
-    <div class="text-[22px] font-bold text-ink mb-1">
-      <span v-if="prefix" class="text-ink">{{ prefix }}</span><span class="text-[#00A0A6]">{{ value }}</span>
-    </div>
-    <div v-if="trend" class="text-[11px] flex items-center gap-1" :class="trendClass">
-      {{ trend }}
+  <div class="surface surface-hover relative p-5 lg:p-6 overflow-hidden">
+    <!-- subtle corner glow on the value -->
+    <div
+      v-if="accent !== false"
+      class="absolute -top-12 -right-12 w-40 h-40 rounded-full pointer-events-none"
+      style="background: radial-gradient(closest-side, rgba(0,181,189,0.08), transparent 70%)"
+      aria-hidden="true"
+    />
+    <div class="relative">
+      <div class="text-[10.5px] font-semibold text-text-muted uppercase tracking-[0.1em] mb-3">{{ label }}</div>
+      <div class="text-[26px] lg:text-[28px] font-semibold text-ink mb-1 leading-none tracking-tightest tabular">
+        <span v-if="prefix" class="text-text-faint font-medium text-[20px] mr-0.5">{{ prefix }}</span>{{ value }}
+      </div>
+      <div v-if="trend" class="text-[11px] flex items-center gap-1 mt-1.5 tabular" :class="trendClass">
+        <span aria-hidden="true">{{ trendArrow }}</span>{{ trend }}
+      </div>
     </div>
   </div>
 </template>
@@ -19,11 +28,17 @@ const props = defineProps<{
   prefix?: string
   trend?: string
   trendDir?: 'up' | 'down' | 'neutral'
+  /** Render the subtle corner accent glow. Default true. */
+  accent?: boolean
 }>()
 
 const trendClass = computed(() => ({
-  'text-green-600': props.trendDir === 'up',
-  'text-red-500':   props.trendDir === 'down',
-  'text-gray-400':  props.trendDir === 'neutral' || !props.trendDir,
+  'text-[#2E9F5C]': props.trendDir === 'up',
+  'text-[#DC4438]': props.trendDir === 'down',
+  'text-text-muted': props.trendDir === 'neutral' || !props.trendDir,
 }))
+
+const trendArrow = computed(() =>
+  props.trendDir === 'up' ? '↑' : props.trendDir === 'down' ? '↓' : '·'
+)
 </script>

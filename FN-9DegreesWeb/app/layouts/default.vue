@@ -1,18 +1,20 @@
 <template>
-  <div class="flex min-h-screen bg-[#F0F2F5]">
+  <div class="flex min-h-dvh bg-surface bg-grain">
     <!-- Desktop Sidebar -->
     <AppSidebar class="hidden lg:flex" />
 
     <!-- Main -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0 relative z-[1]">
       <AppHeader :title="pageTitle" @open-drawer="drawerOpen = true">
         <template #actions>
           <slot name="header-actions" />
         </template>
       </AppHeader>
 
-      <main class="flex-1 p-4 lg:p-6">
-        <slot />
+      <main class="flex-1 p-4 lg:p-7">
+        <div class="max-w-[1400px] mx-auto w-full">
+          <slot />
+        </div>
       </main>
     </div>
 

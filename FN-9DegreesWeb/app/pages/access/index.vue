@@ -1,35 +1,45 @@
 <template>
   <NuxtLayout>
     <div class="mb-4 flex justify-end">
-      <button class="btn-primary" @click="openCreate">+ New Account</button>
+      <button class="btn-primary inline-flex items-center gap-1.5" @click="openCreate">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+        New account
+      </button>
     </div>
 
     <AppTable :columns="columns" :rows="accounts" :loading="loading">
       <template #default="{ row }">
-        <td class="px-4 py-3 text-[13px] font-medium text-ink font-mono">{{ row.username }}</td>
-        <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.ambassador_name ?? '—' }}</td>
+        <td class="px-4 py-3 text-[13px] font-medium text-ink font-mono text-[12.5px]">{{ row.username }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft">{{ row.ambassador_name ?? '—' }}</td>
         <td class="px-4 py-3"><AppBadge :variant="row.role">{{ row.role }}</AppBadge></td>
         <td class="px-4 py-3"><AppBadge :variant="row.is_active ? 'active' : 'inactive'">{{ row.is_active ? 'Active' : 'Inactive' }}</AppBadge></td>
         <td class="px-4 py-3">
           <div class="flex justify-end gap-1">
-            <button v-if="row.role !== 'owner'" class="act-btn" @click="openEdit(row)">✎</button>
-            <button v-if="row.role !== 'owner' && row.is_active" class="act-btn text-red-400" @click="doDeactivate(row)">✕</button>
+            <button v-if="row.role !== 'owner'" class="act-btn" title="Edit" @click="openEdit(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.75a2.121 2.121 0 113 3L7 19.25l-4 1 1-4L16.5 3.75z"/></svg>
+            </button>
+            <button v-if="row.role !== 'owner' && row.is_active" class="act-btn text-[#DC4438] hover:bg-[#FDF2F1]" title="Deactivate" @click="doDeactivate(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M6 18L18 6"/></svg>
+            </button>
           </div>
         </td>
       </template>
     </AppTable>
 
-    <AppModal v-model="showForm" :title="editAccount ? 'Edit Account' : 'New Account'" size="md">
+    <AppModal v-model="showForm" :title="editAccount ? 'Edit account' : 'New account'" size="md">
       <div class="space-y-3">
         <div v-if="!editAccount"><label class="field-label">Username</label><input v-model="form.username" class="field-input w-full" /></div>
         <div v-if="!editAccount"><label class="field-label">Password</label><input v-model="form.password" type="password" class="field-input w-full" /></div>
         <div><label class="field-label">Role</label>
           <AppSelect v-model="form.role" :options="roleOpts" />
         </div>
-        <div><label class="field-label">Link to Ambassador (optional)</label>
+        <div><label class="field-label">Link to ambassador (optional)</label>
           <AppSelect v-model="form.ambassador_id" :options="ambassadorOpts" placeholder="No ambassador" />
         </div>
-        <p v-if="formError" class="text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{{ formError }}</p>
+        <p
+          v-if="formError"
+          class="text-[12px] text-[#B83227] bg-[#FDF2F1] ring-1 ring-inset ring-[#F1D8D5] rounded-md px-3 py-2"
+        >{{ formError }}</p>
       </div>
       <template #footer>
         <button class="btn-secondary" @click="showForm = false">Cancel</button>
@@ -86,7 +96,7 @@ async function handleSave() {
 
 async function doDeactivate(row: any) {
   const { confirm } = useConfirm()
-  const ok = await confirm('Deactivate Account', `Deactivate account "${row.username}"?`)
+  const ok = await confirm('Deactivate account', `Deactivate account "${row.username}"?`)
   if (!ok) return
   await fetch(`${config.public.apiBase}/access/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
   refresh()

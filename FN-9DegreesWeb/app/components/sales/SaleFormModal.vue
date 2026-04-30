@@ -1,5 +1,5 @@
 <template>
-  <AppModal :model-value="modelValue" :title="isEdit ? 'Edit Sale' : 'New Sale'" size="md" @update:model-value="$emit('update:modelValue', $event)">
+  <AppModal :model-value="modelValue" :title="isEdit ? 'Edit sale' : 'New sale'" size="md" @update:model-value="$emit('update:modelValue', $event)">
     <form class="space-y-4" @submit.prevent="handleSubmit">
       <div class="grid grid-cols-2 gap-3">
         <div class="col-span-2">
@@ -11,41 +11,44 @@
           <input
             ref="dateInputRef"
             type="text"
-            class="field-input w-full"
+            class="field-input w-full tabular"
             placeholder="DD/MM/YYYY"
             autocomplete="off"
           />
         </div>
         <div>
-          <label class="field-label">Sale Type</label>
+          <label class="field-label">Sale type</label>
           <AppSelect v-model="form.sale_type" :options="[{value:'Table',label:'Table'},{value:'BGO',label:'BGO'}]" />
         </div>
         <div class="col-span-2">
-          <label class="field-label">Table Number</label>
+          <label class="field-label">Table number</label>
           <input
             v-model="form.table_number"
             type="text"
-            class="field-input w-full"
+            class="field-input w-full tabular"
             placeholder="e.g. T04"
             :required="form.sale_type === 'Table'"
           />
-          <p v-if="form.sale_type === 'BGO'" class="mt-1 text-[11px] text-gray-400">Optional for BGO</p>
+          <p v-if="form.sale_type === 'BGO'" class="mt-1 text-[11px] text-text-muted">Optional for BGO</p>
         </div>
         <div class="col-span-2">
-          <label class="field-label">Gross Amount (RM)</label>
-          <input v-model="form.gross_amount" type="number" step="0.01" min="0.01" class="field-input w-full" required />
+          <label class="field-label">Gross amount (RM)</label>
+          <input v-model="form.gross_amount" type="number" step="0.01" min="0.01" class="field-input w-full tabular" required />
         </div>
         <div class="col-span-2">
           <label class="field-label">Remarks</label>
           <input v-model="form.remarks" type="text" class="field-input w-full" placeholder="Optional" />
         </div>
       </div>
-      <p v-if="error" class="text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{{ error }}</p>
+      <p
+        v-if="error"
+        class="text-[12px] text-[#B83227] bg-[#FDF2F1] ring-1 ring-inset ring-[#F1D8D5] rounded-md px-3 py-2"
+      >{{ error }}</p>
     </form>
     <template #footer>
       <button type="button" class="btn-secondary" @click="$emit('update:modelValue', false)">Cancel</button>
       <button type="button" class="btn-primary" :disabled="loading" @click="handleSubmit">
-        {{ loading ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Sale' }}
+        {{ loading ? 'Saving…' : isEdit ? 'Save changes' : 'Create sale' }}
       </button>
     </template>
   </AppModal>

@@ -1,33 +1,43 @@
 <template>
   <NuxtLayout>
-    <div class="bg-white border border-[#E8E8EC] rounded-2xl p-4 mb-4 shadow-sm">
+    <div class="surface p-4 mb-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div class="flex-1 min-w-0 max-w-xl space-y-1.5">
           <label class="field-label" for="amb-search">Search</label>
-          <input
-            id="amb-search"
-            v-model="searchDraft"
-            type="search"
-            class="field-input w-full"
-            placeholder="Name, full name, IC, role, team…"
-            autocomplete="off"
-          />
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+            <input
+              id="amb-search"
+              v-model="searchDraft"
+              type="search"
+              class="field-input w-full pl-9"
+              placeholder="Name, full name, IC, role, team…"
+              autocomplete="off"
+            />
+          </div>
         </div>
-        <button type="button" class="btn-primary w-full sm:w-auto shrink-0" @click="openCreate">+ New Ambassador</button>
+        <button type="button" class="btn-primary w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5" @click="openCreate">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+          New ambassador
+        </button>
       </div>
     </div>
 
     <AppTable :columns="columns" :rows="ambassadors" :loading="loading">
       <template #default="{ row }">
-        <td class="px-4 py-3 text-[13px] font-medium text-ink">{{ row.name }}</td>
-        <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.role_name }}</td>
-        <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.team_name ?? '—' }}</td>
-        <td class="px-4 py-3 text-[13px] text-right text-[#00A0A6]">{{ row.custom_commission_rate }}%</td>
+        <td class="px-4 py-3 text-[13px] font-medium text-ink tracking-[-0.005em]">{{ row.name }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft">{{ row.role_name }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft">{{ row.team_name ?? '—' }}</td>
+        <td class="px-4 py-3 text-[13px] text-right font-medium text-cyan-dark tabular">{{ row.custom_commission_rate }}%</td>
         <td class="px-4 py-3"><AppBadge :variant="row.status">{{ row.status }}</AppBadge></td>
         <td class="px-4 py-3">
           <div class="flex justify-end gap-1">
-            <button class="act-btn" @click="openEdit(row)">✎</button>
-            <button v-if="!['Johnny','Unassigned Sales'].includes(row.name)" class="act-btn text-red-400" @click="doDeactivate(row)">✕</button>
+            <button class="act-btn" title="Edit" @click="openEdit(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.75a2.121 2.121 0 113 3L7 19.25l-4 1 1-4L16.5 3.75z"/></svg>
+            </button>
+            <button v-if="!['Johnny','Unassigned Sales'].includes(row.name)" class="act-btn text-[#DC4438] hover:bg-[#FDF2F1]" title="Deactivate" @click="doDeactivate(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M6 18L18 6"/></svg>
+            </button>
           </div>
         </td>
       </template>
@@ -35,9 +45,9 @@
 
     <div
       v-if="meta"
-      class="bg-white border border-[#E8E8EC] rounded-2xl p-4 mt-4 shadow-sm flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+      class="surface p-4 mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
     >
-      <p class="text-[13px] text-gray-500 lg:pt-1">
+      <p class="text-[13px] text-text-soft lg:pt-1 tabular">
         <template v-if="meta.total === 0">
           {{ String(listParams.q ?? '').trim() ? 'No ambassadors match this search.' : 'No ambassadors to show.' }}
         </template>
@@ -59,8 +69,8 @@
           >
             Previous
           </button>
-          <span class="text-[13px] text-gray-600 px-1 tabular-nums">
-            Page {{ meta.page }} of {{ meta.last_page }}
+          <span class="text-[13px] text-text-soft px-1 tabular">
+            Page <span class="text-ink font-medium">{{ meta.page }}</span> of <span class="text-ink font-medium">{{ meta.last_page }}</span>
           </span>
           <button
             type="button"
@@ -75,29 +85,32 @@
     </div>
 
     <!-- Create/Edit Modal -->
-    <AppModal v-model="showForm" :title="editAmbassador ? 'Edit Ambassador' : 'New Ambassador'" size="lg">
+    <AppModal v-model="showForm" :title="editAmbassador ? 'Edit ambassador' : 'New ambassador'" size="lg">
       <form class="grid grid-cols-2 gap-3" @submit.prevent="handleSave">
-        <div><label class="field-label">Name (Alias)</label><input v-model="form.name" class="field-input w-full" required /></div>
-        <div><label class="field-label">Full Legal Name</label><input v-model="form.full_name" class="field-input w-full" /></div>
-        <div><label class="field-label">IC / Passport</label><input v-model="form.ic" class="field-input w-full" /></div>
-        <div><label class="field-label">Commission Role</label><AppSelect v-model="form.role_id" :options="roleOpts" /></div>
+        <div><label class="field-label">Name (alias)</label><input v-model="form.name" class="field-input w-full" required /></div>
+        <div><label class="field-label">Full legal name</label><input v-model="form.full_name" class="field-input w-full" /></div>
+        <div><label class="field-label">IC / passport</label><input v-model="form.ic" class="field-input w-full" /></div>
+        <div><label class="field-label">Commission role</label><AppSelect v-model="form.role_id" :options="roleOpts" /></div>
         <div><label class="field-label">Team</label><AppSelect v-model="form.team_id" :options="teamOpts" placeholder="No team" /></div>
-        <div><label class="field-label">Commission Rate (%)</label><input v-model="form.custom_commission_rate" type="number" step="0.01" min="0" max="12" class="field-input w-full" /></div>
-        <div><label class="field-label">KPI Target (RM)</label><input v-model="form.kpi" type="number" step="0.01" class="field-input w-full" placeholder="Optional" /></div>
-        <div><label class="field-label">KPI Bonus (%)</label><input v-model="form.commission_increase" type="number" step="0.01" class="field-input w-full" placeholder="Optional" /></div>
-        <div class="col-span-2 flex items-center gap-2">
-          <input v-model="form.use_kpi_bonus" type="checkbox" id="use_kpi" class="accent-[#00C4CC]" />
-          <label for="use_kpi" class="text-[13px] text-gray-600">Enable KPI bonus</label>
-        </div>
-        <div class="col-span-2 border-t border-[#F0F0F0] pt-3 mt-1">
-          <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Bank Details</p>
+        <div><label class="field-label">Commission rate (%)</label><input v-model="form.custom_commission_rate" type="number" step="0.01" min="0" max="12" class="field-input w-full" /></div>
+        <div><label class="field-label">KPI target (RM)</label><input v-model="form.kpi" type="number" step="0.01" class="field-input w-full" placeholder="Optional" /></div>
+        <div><label class="field-label">KPI bonus (%)</label><input v-model="form.commission_increase" type="number" step="0.01" class="field-input w-full" placeholder="Optional" /></div>
+        <label class="col-span-2 flex items-center gap-2 cursor-pointer select-none rounded-md px-2 py-1.5 hover:bg-border-soft transition-colors">
+          <input v-model="form.use_kpi_bonus" type="checkbox" id="use_kpi" class="accent-cyan w-4 h-4" />
+          <span class="text-[13px] text-text">Enable KPI bonus</span>
+        </label>
+        <div class="col-span-2 border-t border-border-soft pt-4 mt-1">
+          <p class="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text-muted mb-3">Bank details</p>
           <div class="grid grid-cols-2 gap-3">
-            <div><label class="field-label">Bank Name</label><input v-model="form.bank_name" class="field-input w-full" /></div>
-            <div><label class="field-label">Account Number</label><input v-model="form.bank_account_number" class="field-input w-full" /></div>
-            <div class="col-span-2"><label class="field-label">Account Holder Name</label><input v-model="form.bank_owner_name" class="field-input w-full" /></div>
+            <div><label class="field-label">Bank name</label><input v-model="form.bank_name" class="field-input w-full" /></div>
+            <div><label class="field-label">Account number</label><input v-model="form.bank_account_number" class="field-input w-full font-mono text-[12.5px]" /></div>
+            <div class="col-span-2"><label class="field-label">Account holder name</label><input v-model="form.bank_owner_name" class="field-input w-full" /></div>
           </div>
         </div>
-        <p v-if="formError" class="col-span-2 text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{{ formError }}</p>
+        <p
+          v-if="formError"
+          class="col-span-2 text-[12px] text-[#B83227] bg-[#FDF2F1] ring-1 ring-inset ring-[#F1D8D5] rounded-md px-3 py-2"
+        >{{ formError }}</p>
       </form>
       <template #footer>
         <button class="btn-secondary" @click="showForm = false">Cancel</button>
@@ -120,7 +133,6 @@ const formLoading    = ref(false)
 const defaultForm = () => ({ name: '', full_name: '', ic: '', role_id: '', team_id: '', custom_commission_rate: 10, kpi: '', commission_increase: '', use_kpi_bonus: false, bank_name: '', bank_account_number: '', bank_owner_name: '' })
 const form = ref(defaultForm())
 
-/** DB / JSON often sends tinyint as "0" / "1"; `!!"0"` is wrongly true in JS. */
 function dbIntFlagIsOn(v: unknown): boolean {
   return v === 1 || v === true || v === '1'
 }
@@ -243,7 +255,7 @@ async function handleSave() {
 
 async function doDeactivate(row: any) {
   const { confirm } = useConfirm()
-  const ok = await confirm('Deactivate Ambassador', `Deactivate ${row.name}?`)
+  const ok = await confirm('Deactivate ambassador', `Deactivate ${row.name}?`)
   if (!ok) return
   await fetch(`${config.public.apiBase}/ambassadors/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
   refresh()

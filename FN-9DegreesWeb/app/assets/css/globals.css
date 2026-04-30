@@ -1,41 +1,202 @@
+/* ---------------------------------------------------------------------- */
+/*  Tokens                                                                 */
+/* ---------------------------------------------------------------------- */
 :root {
-  --color-cyan:       #00C4CC;
-  --color-cyan-dark:  #00A0A6;
-  --color-cyan-tint:  rgba(0, 196, 204, 0.10);
-  --color-ink:        #0A0A0A;
-  --color-surface:    #F0F2F5;
-  --color-border:     #E8E8EC;
-  --color-danger:     #EF4444;
-  --color-success:    #22C55E;
-  --color-warning:    #F59E0B;
+  /* Brand */
+  --color-cyan:        #00B5BD;          /* slightly desaturated, less screaming */
+  --color-cyan-dark:   #00969C;
+  --color-cyan-tint:   rgba(0, 181, 189, 0.10);
+  --color-cyan-glow:   rgba(0, 181, 189, 0.22);
+
+  /* Neutrals — single warm-tinted gray family (no warm/cool mixing) */
+  --color-ink:         #0E0F10;          /* off-black, not pure */
+  --color-ink-soft:    #1F2124;
+  --color-text:        #2A2C30;
+  --color-text-soft:   #5A5E66;
+  --color-text-muted:  #8A8F99;
+  --color-text-faint:  #B5BAC4;
+
+  --color-surface:     #F4F4F1;          /* warm off-white, not blue-gray */
+  --color-surface-2:   #FFFFFF;
+  --color-border:      #E6E5E0;
+  --color-border-soft: #EFEEE9;
+
+  /* Semantic */
+  --color-danger:      #DC4438;
+  --color-success:     #2E9F5C;
+  --color-warning:     #D98A1F;
+
+  /* Shadows — tinted, not pure black */
+  --shadow-sm:  0 1px 2px rgba(20, 22, 26, 0.04), 0 1px 1px rgba(20, 22, 26, 0.03);
+  --shadow-md:  0 4px 12px rgba(20, 22, 26, 0.05), 0 1px 3px rgba(20, 22, 26, 0.04);
+  --shadow-lg:  0 18px 40px -16px rgba(20, 22, 26, 0.18), 0 6px 16px -8px rgba(20, 22, 26, 0.06);
+  --shadow-glow: 0 0 0 4px var(--color-cyan-tint);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Base                                                                  */
+/* ---------------------------------------------------------------------- */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background-color: var(--color-surface);
-  color: var(--color-ink);
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  color: var(--color-text);
+  font-family:
+    'Geist', -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+/* Headlines balance better — no orphans */
+h1, h2, h3, h4 { text-wrap: balance; letter-spacing: -0.01em; }
+
+/* Tabular figures for any numeric / monetary cell */
+.num,
+[data-num],
+td.num,
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv11';
+}
+
+/* Subtle grain — gives surfaces tactility without being noisy */
+.bg-grain {
+  position: relative;
+  isolation: isolate;
+}
+.bg-grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(0,181,189,0.05), transparent 40%),
+    radial-gradient(circle at 90% 100%, rgba(255,210,140,0.04), transparent 45%);
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Scrollbar — narrow, tinted                                            */
+/* ---------------------------------------------------------------------- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-faint); }
 
+/* ---------------------------------------------------------------------- */
+/*  Focus ring (keyboard nav — accessibility)                             */
+/* ---------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Utility classes (Tailwind v3 @apply layer)                            */
+/* ---------------------------------------------------------------------- */
 .btn-primary {
-  @apply px-4 py-2 bg-[#00C4CC] hover:bg-[#00AFBB] text-white font-semibold text-[13px] rounded-lg transition-colors disabled:opacity-60;
+  @apply px-4 py-2 bg-[#00B5BD] hover:bg-[#00A1A8] active:bg-[#00969C]
+         text-white font-medium text-[13px] rounded-lg
+         transition-all duration-150
+         active:scale-[0.98]
+         disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+         shadow-[0_1px_2px_rgba(0,150,156,0.25),inset_0_1px_0_rgba(255,255,255,0.15)]
+         tracking-[-0.005em];
 }
+
 .btn-secondary {
-  @apply px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 font-medium text-[13px] rounded-lg border border-[#E0E0E0] transition-colors;
+  @apply px-4 py-2 bg-white hover:bg-[#FAFAF7] active:bg-[#F4F4F1]
+         text-[#2A2C30] font-medium text-[13px] rounded-lg
+         border border-[#E6E5E0] hover:border-[#D8D7D2]
+         transition-all duration-150 active:scale-[0.98]
+         disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
 }
+
 .btn-danger {
-  @apply px-4 py-2 bg-white hover:bg-red-50 text-red-500 font-medium text-[13px] rounded-lg border border-red-100 transition-colors;
+  @apply px-4 py-2 bg-white hover:bg-[#FDF2F1] active:bg-[#FBE5E3]
+         text-[#DC4438] font-medium text-[13px] rounded-lg
+         border border-[#F1D8D5] hover:border-[#E5BFBA]
+         transition-all duration-150 active:scale-[0.98];
 }
+
+.btn-ghost {
+  @apply px-3 py-1.5 text-[13px] font-medium text-[#5A5E66]
+         hover:text-[#0E0F10] hover:bg-[#EFEEE9]
+         rounded-md transition-colors duration-150;
+}
+
 .field-label {
-  @apply block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5;
+  @apply block text-[10.5px] font-semibold text-[#5A5E66] uppercase tracking-[0.08em] mb-1.5;
 }
+
 .field-input {
-  @apply px-3 py-2 border border-[#E0E0E0] rounded-lg text-[13px] text-ink bg-white outline-none focus:border-[#00C4CC] focus:ring-2 focus:ring-[#00C4CC]/10 transition-colors;
+  @apply px-3 py-2 border border-[#E6E5E0] rounded-lg text-[13px] text-[#0E0F10] bg-white
+         outline-none transition-all duration-150
+         hover:border-[#D8D7D2]
+         focus:border-[#00B5BD] focus:ring-2 focus:ring-[#00B5BD]/15
+         placeholder:text-[#B5BAC4];
 }
+
 .act-btn {
-  @apply w-7 h-7 rounded-md bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-[12px] text-gray-500 transition-colors;
+  @apply w-7 h-7 rounded-md bg-[#F4F4F1] hover:bg-[#E6E5E0] active:scale-[0.92]
+         flex items-center justify-center text-[12px] text-[#5A5E66]
+         transition-all duration-150;
+}
+
+/* Skeleton shimmer — replaces the generic "Loading…" text */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #ECEAE3;
+  border-radius: 6px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.55) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Card surface — used by AppCard / chart panels for consistent depth */
+.surface {
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.surface-hover {
+  transition: transform 200ms var(--ease-out-soft),
+              box-shadow 200ms var(--ease-out-soft),
+              border-color 200ms var(--ease-out-soft);
+}
+.surface-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: #DCDAD4;
 }

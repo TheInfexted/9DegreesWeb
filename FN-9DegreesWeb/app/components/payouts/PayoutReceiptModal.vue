@@ -9,14 +9,18 @@
       <!-- Existing receipts -->
       <div>
         <label class="field-label">Attached receipts</label>
-        <div v-if="receipts.length === 0" class="text-[13px] text-gray-400 py-3 text-center border border-dashed border-[#E8E8EC] rounded-xl">
-          No receipts attached yet.
+        <div
+          v-if="receipts.length === 0"
+          class="text-[12.5px] text-text-muted py-6 text-center border border-dashed border-border rounded-lg bg-border-soft/30"
+        >
+          No receipts attached yet
         </div>
-        <ul v-else class="border border-[#E8E8EC] rounded-xl divide-y divide-[#F0F0F0]">
-          <li v-for="(r, i) in receipts" :key="i" class="flex items-center gap-3 px-3 py-2">
-            <span class="flex-1 text-[13px] text-ink truncate">{{ r.name }}</span>
-            <button class="text-[12px] text-[#00A0A6] hover:underline" @click="doDownload(i, r.name)">Download</button>
-            <button class="text-[12px] text-red-400 hover:underline" :disabled="busy" @click="doDelete(i)">Delete</button>
+        <ul v-else class="border border-border rounded-lg divide-y divide-border-soft bg-white overflow-hidden">
+          <li v-for="(r, i) in receipts" :key="i" class="flex items-center gap-3 px-3 py-2.5">
+            <svg class="w-3.5 h-3.5 text-text-muted shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M9 4h6a2 2 0 012 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 012-2z"/></svg>
+            <span class="flex-1 text-[12.5px] text-ink truncate">{{ r.name }}</span>
+            <button class="text-[11.5px] font-medium text-cyan-dark hover:underline underline-offset-2" @click="doDownload(i, r.name)">Download</button>
+            <button class="text-[11.5px] font-medium text-[#DC4438] hover:underline underline-offset-2 disabled:opacity-50" :disabled="busy" @click="doDelete(i)">Delete</button>
           </li>
         </ul>
       </div>
@@ -28,11 +32,21 @@
           ref="fileInput"
           type="file"
           accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
-          class="block w-full text-[13px] file:mr-3 file:rounded-lg file:border-0 file:bg-[#00C4CC12] file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-[#007a80]"
+          class="block w-full text-[12.5px] text-text-soft
+                 file:mr-3 file:rounded-md file:border-0
+                 file:bg-cyan-tint file:px-3 file:py-1.5
+                 file:text-[12px] file:font-semibold file:text-cyan-dark
+                 hover:file:bg-cyan/15 file:cursor-pointer file:transition-colors"
           @change="onFilePick"
         />
-        <p v-if="errorMsg" class="text-[11px] text-red-500 mt-1">{{ errorMsg }}</p>
-        <p class="text-[11px] text-gray-400 mt-1">PNG, JPG, or PDF. Max 10 MB. Up to 10 files per payout.</p>
+        <p
+          v-if="errorMsg"
+          class="text-[11.5px] text-[#B83227] mt-2 inline-flex items-center gap-1.5"
+        >
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          {{ errorMsg }}
+        </p>
+        <p class="text-[11px] text-text-muted mt-2">PNG, JPG, or PDF. Up to 10 MB · 10 files per payout.</p>
       </div>
     </div>
 

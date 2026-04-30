@@ -1,21 +1,21 @@
 <template>
   <NuxtLayout>
     <!-- Filters -->
-    <div class="bg-white border border-[#E8E8EC] rounded-2xl p-4 mb-4 shadow-sm flex flex-wrap gap-3">
-      <AppSelect v-model="listParams.month" :options="monthOpts" placeholder="Select month" class="min-w-[160px]" />
-      <AppSelect v-model="listParams.ambassador_id" :options="ambassadorOpts" placeholder="All Ambassadors" class="min-w-[180px]" />
+    <div class="surface p-4 mb-4 flex flex-wrap gap-3">
+      <AppSelect v-model="listParams.month" :options="monthOpts" placeholder="Select month" class="min-w-[180px]" />
+      <AppSelect v-model="listParams.ambassador_id" :options="ambassadorOpts" placeholder="All ambassadors" class="min-w-[200px]" />
     </div>
 
-    <p class="text-[12px] text-gray-500 mb-2">{{ summaryScopeLabel }}</p>
+    <p class="text-[11.5px] text-text-muted mb-2">{{ summaryScopeLabel }}</p>
     <!-- Summary bar -->
     <div v-if="summaryCards" class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-      <AppCard label="Total Commission" prefix="RM " :value="fmt(summaryCards.total)" />
-      <AppCard label="Table Commission" prefix="RM " :value="fmt(summaryCards.table)" />
-      <AppCard label="BGO Commission" prefix="RM " :value="fmt(summaryCards.bgo)" />
+      <AppCard label="Total commission" prefix="RM " :value="fmt(summaryCards.total)" />
+      <AppCard label="Table commission" prefix="RM " :value="fmt(summaryCards.table)" :accent="false" />
+      <AppCard label="BGO commission"   prefix="RM " :value="fmt(summaryCards.bgo)"   :accent="false" />
     </div>
 
-    <div v-if="commissionLegendLines.length" class="space-y-1 mb-2">
-      <p v-for="(line, i) in commissionLegendLines" :key="i" class="text-[11px] text-gray-500">
+    <div v-if="commissionLegendLines.length" class="space-y-1 mb-3">
+      <p v-for="(line, i) in commissionLegendLines" :key="i" class="text-[11.5px] text-text-muted">
         {{ line }}
       </p>
     </div>
@@ -23,21 +23,21 @@
     <!-- Table -->
     <AppTable :columns="columns" :rows="sales" :loading="loading" :get-row-class="commissionRowClass">
       <template #default="{ row }">
-        <td class="px-4 py-3 text-[13px]">{{ formatDate(row.date) }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft tabular">{{ formatDate(row.date) }}</td>
         <td class="px-4 py-3"><AppBadge :variant="row.sale_type === 'Table' ? 'confirmed' : 'ambassador'">{{ row.sale_type }}</AppBadge></td>
-        <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.table_number ?? '—' }}</td>
-        <td class="px-4 py-3 text-[13px] text-ink font-medium">{{ row.ambassador_name }}</td>
-        <td class="px-4 py-3 text-[13px] text-right font-semibold">{{ formatRM(row.gross_amount) }}</td>
-        <td class="px-4 py-3 text-[13px] text-right text-gray-500">{{ displayReportRate(row) }}%</td>
-        <td class="px-4 py-3 text-[13px] text-right font-semibold text-[#00A0A6]">{{ formatRM(row.commission_amount) }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft tabular">{{ row.table_number ?? '—' }}</td>
+        <td class="px-4 py-3 text-[13px] text-ink font-medium tracking-[-0.005em]">{{ row.ambassador_name }}</td>
+        <td class="px-4 py-3 text-[13px] text-right font-medium text-ink tabular">{{ formatRM(row.gross_amount) }}</td>
+        <td class="px-4 py-3 text-[13px] text-right text-text-soft tabular">{{ displayReportRate(row) }}%</td>
+        <td class="px-4 py-3 text-[13px] text-right font-semibold text-cyan-dark tabular">{{ formatRM(row.commission_amount) }}</td>
       </template>
     </AppTable>
 
     <div
       v-if="meta"
-      class="bg-white border border-[#E8E8EC] rounded-2xl p-4 mt-4 shadow-sm flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+      class="surface p-4 mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
     >
-      <p class="text-[13px] text-gray-500 lg:pt-1">
+      <p class="text-[13px] text-text-soft lg:pt-1 tabular">
         <template v-if="meta.total === 0">No commission rows for these filters.</template>
         <template v-else>
           Showing <span class="font-medium text-ink">{{ rangeStart }}</span>–<span class="font-medium text-ink">{{ rangeEnd }}</span>
@@ -57,8 +57,8 @@
           >
             Previous
           </button>
-          <span class="text-[13px] text-gray-600 px-1 tabular-nums">
-            Page {{ meta.page }} of {{ meta.last_page }}
+          <span class="text-[13px] text-text-soft px-1 tabular">
+            Page <span class="text-ink font-medium">{{ meta.page }}</span> of <span class="text-ink font-medium">{{ meta.last_page }}</span>
           </span>
           <button
             type="button"
@@ -124,7 +124,6 @@ const { data: ambassadors }          = useAPI('ambassadors', { status: 'active' 
 const monthOpts      = computed(() => (months.value ?? []).map((m: any) => ({ value: m.month, label: m.month })))
 const ambassadorOpts = computed(() => (ambassadors.value ?? []).map((a: any) => ({ value: a.id, label: a.name })))
 
-/** Johnny-only commission view: Table rows from other ambassadors are his pool remainder. */
 const isJohnnyAmbassadorFilter = computed(() => {
   const id = listParams.value.ambassador_id
   if (id === '' || id == null) return false
@@ -142,7 +141,7 @@ function commissionRowClass(row: unknown): string | undefined {
   const r = row as Record<string, unknown>
 
   if (isUnassignedSalesCommissionRow(r)) {
-    return 'bg-[#FFF8E6]/95 border-l-[3px] border-l-[#E6A317] hover:bg-[#FFF3D6]/95'
+    return 'bg-[#FDF6E7]/95 border-l-[3px] border-l-[#D98A1F] hover:bg-[#FBEFD0]/95'
   }
 
   if (!isJohnnyAmbassadorFilter.value) return undefined
@@ -150,17 +149,17 @@ function commissionRowClass(row: unknown): string | undefined {
   const filterId = Number(listParams.value.ambassador_id)
   const aid = Number(r.ambassador_id)
   if (!Number.isFinite(filterId) || !Number.isFinite(aid) || aid === filterId) return undefined
-  return 'bg-[#E6F7F8]/90 border-l-[3px] border-l-[#00C4CC] hover:bg-[#D8F0F2]/95'
+  return 'bg-cyan-tint/60 border-l-[3px] border-l-cyan hover:bg-cyan-tint'
 }
 
 const commissionLegendLines = computed(() => {
   const rows = (sales.value ?? []) as Record<string, unknown>[]
   const lines: string[] = []
   if (rows.some((r) => isUnassignedSalesCommissionRow(r))) {
-    lines.push('Amber highlight: sale under Unassigned Sales (Table pool is 12% to owner; BGO stays 10% on that row).')
+    lines.push('Amber row: sale under Unassigned Sales (Table pool is 12% to owner; BGO stays 10% on that row).')
   }
   if (isJohnnyAmbassadorFilter.value && rows.length > 0) {
-    lines.push('Teal highlight: your Table pool share from another ambassador’s sale (12% total minus their rate).')
+    lines.push('Teal row: your Table pool share from another ambassador’s sale (12% total minus their rate).')
   }
   return lines
 })

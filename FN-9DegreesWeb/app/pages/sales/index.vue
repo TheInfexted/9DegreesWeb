@@ -1,19 +1,22 @@
 <template>
   <NuxtLayout>
     <!-- Filters -->
-    <div class="bg-white border border-[#E8E8EC] rounded-2xl p-4 mb-4 shadow-sm">
+    <div class="surface p-4 mb-4">
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <AppSelect v-model="listParams.status" :options="statusOpts" placeholder="All Statuses" />
-        <AppSelect v-model="listParams.sale_type" :options="typeOpts" placeholder="All Types" />
-        <AppSelect v-model="listParams.ambassador_id" :options="ambassadorOpts" placeholder="All Ambassadors" />
-        <AppSelect v-model="listParams.month" :options="monthOpts" placeholder="All Months" />
+        <AppSelect v-model="listParams.status" :options="statusOpts" placeholder="All statuses" />
+        <AppSelect v-model="listParams.sale_type" :options="typeOpts" placeholder="All types" />
+        <AppSelect v-model="listParams.ambassador_id" :options="ambassadorOpts" placeholder="All ambassadors" />
+        <AppSelect v-model="listParams.month" :options="monthOpts" placeholder="All months" />
       </div>
-      <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-[#F0F0F0] pt-3">
-        <p class="text-[12px] text-gray-500">
+      <div class="mt-3.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border-soft pt-3.5">
+        <p class="text-[12px] text-text-soft">
           Confirm all applies to every <span class="font-medium text-ink">draft</span> row matching ambassador and month.
         </p>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center shrink-0">
-          <NuxtLink to="/sales/import" class="btn-secondary text-[13px] text-center">
+          <NuxtLink to="/sales/import" class="btn-secondary text-[13px] text-center inline-flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+            </svg>
             Import from PDF
           </NuxtLink>
           <button
@@ -28,27 +31,35 @@
       </div>
     </div>
 
-    <p class="text-[12px] text-gray-500 mb-2">{{ summaryScopeLabel }}</p>
+    <p class="text-[11.5px] text-text-muted mb-2">{{ summaryScopeLabel }}</p>
     <div v-if="salesSummaryCards" class="grid grid-cols-2 gap-3 mb-4">
-      <AppCard label="Matching sales" :value="salesSummaryCards.count" />
+      <AppCard label="Matching sales" :value="salesSummaryCards.count" :accent="false" />
       <AppCard label="Gross total" prefix="RM " :value="fmtSummaryGross" />
     </div>
 
     <!-- Table -->
     <AppTable :columns="columns" :rows="sales" :loading="loading">
       <template #default="{ row }">
-        <td class="px-4 py-3 text-[13px] text-ink">{{ row.ambassador_name }}</td>
-        <td class="px-4 py-3 text-[13px] text-gray-500">{{ formatDate(row.date) }}</td>
-        <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.sale_type }}</td>
-        <td class="px-4 py-3 text-[13px] text-gray-500">{{ row.table_number ?? '—' }}</td>
-        <td class="px-4 py-3 text-[13px] text-right font-semibold text-ink">{{ formatRM(row.gross_amount) }}</td>
+        <td class="px-4 py-3 text-[13px] text-ink font-medium tracking-[-0.005em]">{{ row.ambassador_name }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft tabular">{{ formatDate(row.date) }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft">{{ row.sale_type }}</td>
+        <td class="px-4 py-3 text-[13px] text-text-soft tabular">{{ row.table_number ?? '—' }}</td>
+        <td class="px-4 py-3 text-[13px] text-right font-medium text-ink tabular">{{ formatRM(row.gross_amount) }}</td>
         <td class="px-4 py-3"><AppBadge :variant="row.status">{{ row.status }}</AppBadge></td>
         <td class="px-4 py-3">
           <div class="flex justify-end gap-1">
-            <button class="act-btn" title="Edit" @click="openEdit(row)">✎</button>
-            <button v-if="row.status === 'draft'" class="act-btn text-[#007a80]" title="Confirm" @click="doConfirm(row)">✓</button>
-            <button v-if="row.status !== 'void'" class="act-btn text-red-400" title="Void" @click="doVoid(row)">⊘</button>
-            <button v-if="row.status === 'draft'" class="act-btn text-red-400" title="Delete" @click="doDelete(row)">✕</button>
+            <button class="act-btn" title="Edit" @click="openEdit(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.75a2.121 2.121 0 113 3L7 19.25l-4 1 1-4L16.5 3.75z"/></svg>
+            </button>
+            <button v-if="row.status === 'draft'" class="act-btn text-cyan-dark hover:bg-cyan-tint" title="Confirm" @click="doConfirm(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            </button>
+            <button v-if="row.status !== 'void'" class="act-btn text-[#DC4438] hover:bg-[#FDF2F1]" title="Void" @click="doVoid(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728A9 9 0 015.636 5.636"/></svg>
+            </button>
+            <button v-if="row.status === 'draft'" class="act-btn text-[#DC4438] hover:bg-[#FDF2F1]" title="Delete" @click="doDelete(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M6 18L18 6"/></svg>
+            </button>
           </div>
         </td>
       </template>
@@ -56,9 +67,9 @@
 
     <div
       v-if="meta"
-      class="bg-white border border-[#E8E8EC] rounded-2xl p-4 mt-4 shadow-sm flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+      class="surface p-4 mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
     >
-      <p class="text-[13px] text-gray-500 lg:pt-1">
+      <p class="text-[13px] text-text-soft lg:pt-1 tabular">
         <template v-if="meta.total === 0">No sales match these filters.</template>
         <template v-else>
           Showing <span class="font-medium text-ink">{{ rangeStart }}</span>–<span class="font-medium text-ink">{{ rangeEnd }}</span>
@@ -78,8 +89,8 @@
           >
             Previous
           </button>
-          <span class="text-[13px] text-gray-600 px-1 tabular-nums">
-            Page {{ meta.page }} of {{ meta.last_page }}
+          <span class="text-[13px] text-text-soft px-1 tabular">
+            Page <span class="text-ink font-medium">{{ meta.page }}</span> of <span class="text-ink font-medium">{{ meta.last_page }}</span>
           </span>
           <button
             type="button"
@@ -95,13 +106,19 @@
 
     <!-- New Sale FAB (mobile) -->
     <button
-      class="fixed bottom-5 right-5 lg:hidden w-12 h-12 bg-[#00C4CC] text-white rounded-full shadow-lg text-2xl flex items-center justify-center"
+      class="fixed bottom-5 right-5 lg:hidden w-12 h-12 bg-cyan hover:bg-cyan-dark active:scale-95 text-white rounded-full shadow-pop text-xl flex items-center justify-center transition-all duration-150"
+      aria-label="New sale"
       @click="openCreate"
-    >+</button>
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+    </button>
 
     <!-- New Sale button (desktop) -->
-    <div class="fixed bottom-5 right-5 hidden lg:block">
-      <button class="btn-primary" @click="openCreate">+ New Sale</button>
+    <div class="fixed bottom-6 right-6 hidden lg:block">
+      <button class="btn-primary shadow-pop inline-flex items-center gap-1.5" @click="openCreate">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+        New sale
+      </button>
     </div>
 
     <SaleFormModal
@@ -121,7 +138,6 @@ import { formatRM } from '~/utils/currency'
 
 definePageMeta({ middleware: 'auth' })
 
-/** Stable empty query so useAPI does not treat every `{}` as a new request identity for unfiltered summaries. */
 const NO_SALES_SUMMARY_FILTERS: Record<string, unknown> = {}
 
 const listParams = ref({
@@ -173,7 +189,6 @@ const { data: ambassadors }                    = useAPI('ambassadors', { status:
 const { data: months }                         = useAPI('sales/months')
 const { data: latestDefaultsRaw, refresh: refreshLatestDefaults } = useAPI<Record<string, unknown>>('sales/latest-defaults')
 
-/** Normalized row from latest-defaults (handles useAPI when `data` is null). */
 const latestSaleDefaults = computed(() => {
   const v = latestDefaultsRaw.value
   if (!v || typeof v !== 'object') return null
@@ -282,7 +297,7 @@ async function openCreate() {
 function openEdit(row: any) { editSale.value = row; showForm.value = true }
 
 async function doConfirm(row: any) {
-  const ok = await confirm('Confirm Sale', `Confirm this sale for ${row.ambassador_name}?`)
+  const ok = await confirm('Confirm sale', `Confirm this sale for ${row.ambassador_name}?`)
   if (!ok) return
   const config = useRuntimeConfig(); const auth = useAuthStore()
   await fetch(`${config.public.apiBase}/sales/${row.id}/confirm`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } })
@@ -326,7 +341,7 @@ async function doConfirmAll() {
 }
 
 async function doVoid(row: any) {
-  const ok = await confirm('Void Sale', 'This action cannot be undone. Void this sale?')
+  const ok = await confirm('Void sale', 'This action cannot be undone. Void this sale?')
   if (!ok) return
   const config = useRuntimeConfig(); const auth = useAuthStore()
   await fetch(`${config.public.apiBase}/sales/${row.id}/void`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } })
@@ -334,7 +349,7 @@ async function doVoid(row: any) {
 }
 
 async function doDelete(row: any) {
-  const ok = await confirm('Delete Sale', 'Permanently delete this draft sale?')
+  const ok = await confirm('Delete sale', 'Permanently delete this draft sale?')
   if (!ok) return
   const config = useRuntimeConfig(); const auth = useAuthStore()
   await fetch(`${config.public.apiBase}/sales/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })

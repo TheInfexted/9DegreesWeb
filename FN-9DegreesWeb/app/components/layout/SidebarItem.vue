@@ -1,18 +1,24 @@
 <template>
   <NuxtLink
     :to="to"
-    class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-colors"
+    class="group relative flex items-center gap-2.5 pl-3 pr-2.5 py-2 rounded-md text-[13px] transition-all duration-150"
     :class="isActive
-      ? 'bg-[#00C4CC12] text-[#007a80] font-semibold'
-      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'"
+      ? 'bg-cyan-tint text-ink font-medium'
+      : 'text-text-soft hover:bg-border-soft hover:text-ink'"
   >
-    <component
-      :is="Icon"
-      class="w-[14px] h-[14px] shrink-0"
-      :class="isActive ? 'text-[#00C4CC]' : 'text-gray-400'"
+    <!-- Active indicator bar -->
+    <span
+      v-if="isActive"
+      class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-cyan"
       aria-hidden="true"
     />
-    {{ label }}
+    <component
+      :is="Icon"
+      class="w-[15px] h-[15px] shrink-0 transition-colors"
+      :class="isActive ? 'text-cyan-dark' : 'text-text-muted group-hover:text-text-soft'"
+      aria-hidden="true"
+    />
+    <span class="tracking-[-0.005em]">{{ label }}</span>
   </NuxtLink>
 </template>
 
