@@ -228,13 +228,13 @@ async function doMarkPaid(row: any) {
 }
 
 async function doDownloadSummary(row: any) {
-  await downloadPdf(`${config.public.apiBase}/payouts/${row.id}/summary`, `payout-summary-${row.id}.pdf`, auth.token!)
+  await downloadPdf(`${config.public.apiBase}/payouts/${row.id}/summary`, 'payout-summary.pdf', auth.token!)
 }
 
 async function doGeneratePayslip(row: any) {
   const res = await fetch(`${config.public.apiBase}/payouts/${row.id}/payslip`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } })
   if (res.ok) {
-    await downloadPdf(`${config.public.apiBase}/payouts/${row.id}/payslip`, `payslip-${row.id}.pdf`, auth.token!)
+    await downloadPdf(`${config.public.apiBase}/payouts/${row.id}/payslip`, 'payslip.pdf', auth.token!)
     await refresh()
   }
 }
