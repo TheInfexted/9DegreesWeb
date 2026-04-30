@@ -288,6 +288,7 @@ const columns = [
 ]
 
 const { confirm } = useConfirm()
+const toast       = useToast()
 
 async function openCreate() {
   editSale.value = null
@@ -329,30 +330,41 @@ async function doConfirmAll() {
     if (!res.ok) throw new Error(json.message ?? 'Request failed.')
     const confirmed = json.data?.confirmed ?? 0
     const failed    = json.data?.failed ?? []
-    let msg         = `Confirmed ${confirmed} sale(s).`
-    if (failed.length) msg += ` ${failed.length} failed (see server logs).`
-    window.alert(msg)
+    if (failed.length) {
+      toast.error(
+        `Confirmed ${confirmed}, ${failed.length} failed`,
+        'See server logs for the failed rows.',
+      )
+    } else {
+      toast.success(`Confirmed ${confirmed} ${confirmed === 1 ? 'sale' : 'sales'}`)
+    }
     await refresh()
   } catch (e: unknown) {
-    window.alert(e instanceof Error ? e.message : 'Failed.')
+    toast.error('Confirm failed', e instanceof Error ? e.message : 'Please try again.')
   } finally {
     confirmAllLoading.value = false
   }
 }
 
 async function doVoid(row: any) {
-  const ok = await confirm('Void sale', 'This action cannot be undone. Void this sale?')
+  const ok = await confirm('Void sale', 'This action cannot be undone. Void this sale?', {
+    tone: 'danger', confirmLabel: 'Void sale',
+  })
   if (!ok) return
   const config = useRuntimeConfig(); const auth = useAuthStore()
   await fetch(`${config.public.apiBase}/sales/${row.id}/void`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } })
+  toast.success('Sale voided')
   await refresh()
 }
 
 async function doDelete(row: any) {
-  const ok = await confirm('Delete sale', 'Permanently delete this draft sale?')
+  const ok = await confirm('Delete sale', 'Permanently delete this draft sale?', {
+    tone: 'danger', confirmLabel: 'Delete',
+  })
   if (!ok) return
   const config = useRuntimeConfig(); const auth = useAuthStore()
   await fetch(`${config.public.apiBase}/sales/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
+  toast.success('Sale deleted')
   await refresh()
 }
 </script>

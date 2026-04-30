@@ -284,6 +284,7 @@ function formatFileSize(bytes: number): string {
 
 const config = useRuntimeConfig()
 const auth   = useAuthStore()
+const toast  = useToast()
 
 async function doParse() {
   if (!selectedFile.value) return
@@ -441,14 +442,18 @@ async function doCommit() {
     const skipped = result.skipped ?? 0
     const failed  = result.failed ?? []
 
-    let msg = `Import complete. Created: ${created}, Updated: ${updated}, Skipped: ${skipped}.`
+    const detail = `Created ${created} · Updated ${updated} · Skipped ${skipped}`
+
     if (failed.length) {
-      msg += `\n\n${failed.length} row(s) failed:\n` + failed.map((f: any) => `• ${f.receipt}: ${f.message}`).join('\n')
+      const lines = failed.slice(0, 4).map((f: any) => `• ${f.receipt}: ${f.message}`).join('\n')
+      const more  = failed.length > 4 ? `\n…and ${failed.length - 4} more` : ''
+      toast.error(`${failed.length} row${failed.length === 1 ? '' : 's'} failed`, `${detail}\n\n${lines}${more}`)
+    } else {
+      toast.success('Import complete', detail)
     }
-    window.alert(msg)
     navigateTo('/sales')
   } catch (e: unknown) {
-    window.alert(e instanceof Error ? e.message : 'Import failed.')
+    toast.error('Import failed', e instanceof Error ? e.message : 'Please try again.')
   } finally {
     committing.value = false
   }

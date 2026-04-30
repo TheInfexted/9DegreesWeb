@@ -96,7 +96,9 @@ async function handleSave() {
 
 async function doDeactivate(row: any) {
   const { confirm } = useConfirm()
-  const ok = await confirm('Deactivate account', `Deactivate account "${row.username}"?`)
+  const ok = await confirm('Deactivate account', `Deactivate account "${row.username}"?`, {
+    tone: 'danger', confirmLabel: 'Deactivate',
+  })
   if (!ok) return
   await fetch(`${config.public.apiBase}/access/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
   refresh()

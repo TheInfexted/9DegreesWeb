@@ -240,7 +240,9 @@ async function doGeneratePayslip(row: any) {
 }
 
 async function doDelete(row: any) {
-  const ok = await confirm('Delete payout', 'Delete this payout record and all its files?')
+  const ok = await confirm('Delete payout', 'Delete this payout record and all its files?', {
+    tone: 'danger', confirmLabel: 'Delete',
+  })
   if (!ok) return
   await fetch(`${config.public.apiBase}/payouts/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
   await refresh()

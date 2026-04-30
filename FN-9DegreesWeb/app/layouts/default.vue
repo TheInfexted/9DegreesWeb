@@ -1,5 +1,8 @@
 <template>
   <div class="flex min-h-dvh bg-surface bg-grain">
+    <!-- Skip to content (keyboard accessibility) -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <!-- Desktop Sidebar -->
     <AppSidebar class="hidden lg:flex" />
 
@@ -11,7 +14,7 @@
         </template>
       </AppHeader>
 
-      <main class="flex-1 p-4 lg:p-7">
+      <main id="main-content" class="flex-1 p-4 lg:p-7">
         <div class="max-w-[1400px] mx-auto w-full">
           <slot />
         </div>
@@ -23,12 +26,18 @@
 
     <!-- Confirm Dialog -->
     <AppModal v-model="confirmState.open" :title="confirmState.title" size="sm" persistent>
-      <p class="text-[13px] text-gray-600">{{ confirmState.message }}</p>
+      <p class="text-[13px] text-text-soft">{{ confirmState.message }}</p>
       <template #footer>
         <button class="btn-secondary" @click="respond(false)">Cancel</button>
-        <button class="btn-primary" @click="respond(true)">Confirm</button>
+        <button
+          :class="confirmState.tone === 'danger' ? 'btn-danger !bg-[#DC4438] !text-white !border-[#DC4438] hover:!bg-[#C73B30] hover:!border-[#C73B30]' : 'btn-primary'"
+          @click="respond(true)"
+        >{{ confirmState.confirmLabel ?? 'Confirm' }}</button>
       </template>
     </AppModal>
+
+    <!-- Toaster -->
+    <AppToaster />
   </div>
 </template>
 
@@ -54,3 +63,20 @@ const titles: Record<string, string> = {
 const pageTitle = computed(() => titles[route.path] ?? '9 Degrees')
 const { state: confirmState, respond } = useConfirm()
 </script>
+
+<style scoped>
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 16px;
+  padding: 8px 14px;
+  background: #0E0F10;
+  color: white;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  z-index: 100;
+  transition: top 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.skip-link:focus { top: 12px; outline: none; }
+</style>

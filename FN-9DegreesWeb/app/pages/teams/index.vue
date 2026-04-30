@@ -101,7 +101,9 @@ async function handleSave() {
 
 async function doDelete(row: any) {
   const { confirm } = useConfirm()
-  const ok = await confirm('Delete team', `Delete "${row.name}"?`)
+  const ok = await confirm('Delete team', `Delete "${row.name}"?`, {
+    tone: 'danger', confirmLabel: 'Delete',
+  })
   if (!ok) return
   await fetch(`${config.public.apiBase}/teams/${row.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
   refresh()
