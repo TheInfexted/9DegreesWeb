@@ -211,16 +211,13 @@ td.num,
   box-shadow: var(--shadow-lg) !important;
   font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif !important;
   font-size: 13px !important;
-  padding: 4px !important;
 }
 .flatpickr-calendar.arrowTop::before,
 .flatpickr-calendar.arrowTop::after,
 .flatpickr-calendar.arrowBottom::before,
 .flatpickr-calendar.arrowBottom::after { display: none !important; }
 
-.flatpickr-months {
-  padding: 6px 4px 8px !important;
-}
+.flatpickr-months { padding: 4px 4px 6px !important; }
 .flatpickr-month {
   color: var(--color-ink) !important;
   fill: var(--color-ink) !important;
@@ -277,8 +274,6 @@ span.flatpickr-weekday {
   font-size: 12.5px !important;
   border-radius: 6px !important;
   border: 1px solid transparent !important;
-  margin: 1px !important;
-  max-width: calc((100% / 7) - 2px) !important;
   height: 34px !important;
   line-height: 32px !important;
 }
