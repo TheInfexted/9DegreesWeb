@@ -36,6 +36,17 @@ export default defineNuxtConfig({
     },
   },
 
+  // Lets the ninedsales.com operator portal read a clean reachability
+  // signal when it pings this subdomain on page load.
+  routeRules: {
+    '/': {
+      headers: {
+        'Access-Control-Allow-Origin': 'https://ninedsales.com',
+        'Access-Control-Allow-Methods': 'HEAD, GET, OPTIONS',
+      },
+    },
+  },
+
   // Use rootDir so this works whether Nuxt's srcDir is `.` or `app/`.
   // Otherwise `~/components` can miss `app/components` and you get UiAppCard / LayoutAppSidebar.
   components: [{ path: '~~/app/components', pathPrefix: false }],
